@@ -2920,6 +2920,8 @@ static int dw_mci_init_host(struct dw_mci *host)
 	if (ret)
 		return ret;
 
+	mmc_of_parse_clk_phase(host->dev, &host->phase_map);
+
 	ret = dw_mci_init_host_caps(host);
 	if (ret)
 		return ret;
