@@ -8,11 +8,12 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
-	model = "H618 BT 100m";
-	compatible = "h618,bt-100m", "allwinner,sun50i-h618";
+	model = "H618 BT 1000m";
+	compatible = "h618,bt-1000m", "allwinner,sun50i-h618";
 
 	aliases {
-		ethernet0 = &emac1;
+		ethernet0 = &emac0;
+		ethernet1 = &emac1;
 		mmc2 = &mmc2;
 		serial0 = &uart0;
 	};
@@ -65,6 +66,22 @@
 &hdmi_out {
 	hdmi_out_con: endpoint {
 		remote-endpoint = <&hdmi_con_in>;
+	};
+};
+
+&emac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ext_rgmii_pins>;
+	phy-mode = "rgmii-id";
+	phy-handle = <&ext_rgmii_phy>;
+	phy-supply = <&reg_dldo1>;
+	status = "okay";
+};
+
+&mdio0 {
+	ext_rgmii_phy: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <1>;
 	};
 };
 
