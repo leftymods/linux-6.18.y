@@ -77,10 +77,20 @@
 	status = "okay";
 };
 
+/* Override dtsi default to include PI6 (EMAC0_TXCLK) needed by this board */
+&ext_rgmii_pins {
+	pins = "PI0", "PI1", "PI2", "PI3", "PI4", "PI5", "PI6",
+	       "PI7", "PI8", "PI9", "PI10", "PI11", "PI12",
+	       "PI13", "PI14", "PI15";
+};
+
 &mdio0 {
 	ext_rgmii_phy: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <1>;
+		reset-gpios = <&pio 8 16 GPIO_ACTIVE_LOW>;	/* PI16 */
+		reset-assert-us = <30000>;
+		reset-deassert-us = <150000>;
 	};
 };
 
