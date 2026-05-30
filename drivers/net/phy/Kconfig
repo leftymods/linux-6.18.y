@@ -344,6 +344,11 @@ config MAXLINEAR_GPHY
 	  Support for the Maxlinear GPY115, GPY211, GPY212, GPY215,
 	  GPY241, GPY245 PHYs.
 
+config MAXIO_PHY
+	tristate "Maxio Ethernet PHYs"
+	help
+	  Supports Maxio MAE0621A Gigabit Ethernet PHYs.
+
 config MAXLINEAR_86110_PHY
 	tristate "MaxLinear MXL86110 PHY support"
 	help
