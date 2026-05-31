@@ -9,6 +9,26 @@
 	model = "AIO-3399B";
 	compatible = "aio,aio-3399b", "rockchip,rk3399";
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		drm_logo: drm-logo@0 {
+			compatible = "rockchip,drm-logo";
+			reg = <0x0 0x0 0x0 0x0>;
+		};
+
+		ramoops: ramoops@110000 {
+			compatible = "ramoops";
+			reg = <0x0 0x110000 0x0 0xf0000>;
+			record-size = <0x20000>;
+			console-size = <0x80000>;
+			ftrace-size = <0x00000>;
+			pmsg-size = <0x50000>;
+		};
+	};
+
 	aliases {
 		led-boot = &user_led1;
 		led-failsafe = &user_led2;
@@ -51,7 +71,6 @@
 		fan-supply = <&vcc12v_dcin>;
 		pwms = <&pwm0 0 10000 0>;
 		cooling-levels = <0 75 100 150 200 255>;
-		//rockchip,temp-trips = <40000 1 45000 2 50000 3 55000 4 60000 5>;
 		status = "okay";
 	};
 
@@ -71,7 +90,7 @@
 			wakeup-source;
 		};
 	};
-	
+
 	ir-receiver {
 		compatible = "gpio-ir-receiver";
 		gpios = <&gpio0 RK_PA6 GPIO_ACTIVE_LOW>;
@@ -105,10 +124,6 @@
 		post-power-on-delay-ms = <300>;
 	};
 
-	/*
-	 * Really, this is supplied by vcc_1v8, and vcc1v8_s3 only
-	 * drives the enable pin, but we can't quite model that.
-	 */
 	vcca0v9_s3: vcca0v9-s3 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <900000>;
@@ -117,7 +132,6 @@
 		vin-supply = <&vcc1v8_s3>;
 	};
 
-	/* As above, actually supplied by vcc3v3_sys */
 	vcca1v8_s3: vcca1v8-s3 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <1800000>;
@@ -193,7 +207,6 @@
 		vin-supply = <&vcc12v_dcin>;
 	};
 
-	/* switched by pmic_sleep */
 	vcc1v8_s3: vcc1v8-s3 {
 		compatible = "regulator-fixed";
 		regulator-always-on;
@@ -248,10 +261,8 @@
 		regulator-max-microvolt = <1400000>;
 		vin-supply = <&vcc5v0_sys>;
 
-		/* for rockchip boot on */
 		rockchip,pwm_id= <2>;
 		rockchip,pwm_voltage = <1000000>;
-
 	};
 
 	wireless-wlan {
@@ -268,7 +279,7 @@
 		compatible = "realtek,rtl8367s";
 		cpu_port = <7>;
 		mii-bus = <&mdio0>;
-		realtek,extif1 = <1 0 12 1 1 1 1 1 4>;	//rtl8367b_extif_init_of
+		realtek,extif1 = <1 0 12 1 1 1 1 1 4>;
 		realtek,extif2 = <1 3 1 1 1 1 1 1 2>;
 	};
 };
@@ -397,7 +408,6 @@
 	status = "okay";
 };
 
-// Let hdmi port support 4k@60fps.
 &hdmi_in_vopl {
 	status = "disabled";
 };
@@ -647,18 +657,17 @@
 &i2c3 {
 	i2c-scl-rising-time-ns = <450>;
 	i2c-scl-falling-time-ns = <15>;
-	status = "okay";	//hdmi_cec
+	status = "okay";
 };
 
 &i2s2 {
-	status = "okay";	//hdmi_sound
+	status = "okay";
 };
 
 &spi1 {
-	status = "okay";	//lcd pannel
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi1_clk &spi1_tx &spi1_cs0>;
-	//cs-gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_HIGH>; /*SPI-CS:PC3 and PA6*/
 
 	st7789v@0 {
 		status = "okay";
@@ -672,7 +681,7 @@
 		dc-gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_LOW>;
 		led-gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
-		debug = <0>; //等级0～7 越高信息越多
+		debug = <0>;
 	};
 };
 
@@ -710,38 +719,23 @@
 		};
 	};
 
-	gmac { //13 16 19 22 26
+	gmac {
 		rgmii_pins: rgmii-pins {
 			rockchip,pins =
-				/* mac_txclk */
 				<3 RK_PC1 1 &pcfg_pull_none_19ma>,
-				/* mac_rxclk */
 				<3 RK_PB6 1 &pcfg_pull_none>,
-				/* mac_mdio */
 				<3 RK_PB5 1 &pcfg_pull_none>,
-				/* mac_txen */
 				<3 RK_PB4 1 &pcfg_pull_none_26ma>,
-				/* mac_clk */
 				<3 RK_PB3 1 &pcfg_pull_none>,
-				/* mac_rxdv */
 				<3 RK_PB1 1 &pcfg_pull_none>,
-				/* mac_mdc */
 				<3 RK_PB0 1 &pcfg_pull_none>,
-				/* mac_rxd1 */
 				<3 RK_PA7 1 &pcfg_pull_none>,
-				/* mac_rxd0 */
 				<3 RK_PA6 1 &pcfg_pull_none>,
-				/* mac_txd1 */
 				<3 RK_PA5 1 &pcfg_pull_none_26ma>,
-				/* mac_txd0 */
 				<3 RK_PA4 1 &pcfg_pull_none_26ma>,
-				/* mac_rxd3 */
 				<3 RK_PA3 1 &pcfg_pull_none>,
-				/* mac_rxd2 */
 				<3 RK_PA2 1 &pcfg_pull_none>,
-				/* mac_txd3 */
 				<3 RK_PA1 1 &pcfg_pull_none_26ma>,
-				/* mac_txd2 */
 				<3 RK_PA0 1 &pcfg_pull_none_26ma>;
 		};
 	};
@@ -752,13 +746,15 @@
 		};
 	};
 
-	power_ext{
+	power_ext {
 		ext_pon_switch_wifi: ext-pon-switch-wifi {
 			rockchip,pins = <2 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
+
 		ext_jms561_m2: ext-jms561-m2 {
 			rockchip,pins = <4 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
+
 		jms561_pw: jms561-pw {
 			rockchip,pins = <2 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
@@ -823,7 +819,7 @@
 		};
 	};
 
-	sdmmc {		//4 6 8 10 12 14 16 18
+	sdmmc {
 		sdmmc_bus1: sdmmc-bus1 {
 			rockchip,pins =
 				<4 RK_PB0 1 &pcfg_pull_up>;
@@ -856,6 +852,16 @@
 			rockchip,pins =
 				<0 RK_PB0 1 &pcfg_pull_up>;
 		};
+
+		sdmmc0_det_l: sdmmc0-det-l {
+			rockchip,pins =
+				<0 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		sdmmc0_pwr_h: sdmmc0-pwr-h {
+			rockchip,pins =
+				<2 RK_PD4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
 	};
 
 	sdio {
@@ -865,7 +871,6 @@
 		};
 
 		bt_reg_on_h: bt-reg-on-h {
-			/* external pullup to VCC1V8_PMUPLL */
 			rockchip,pins =
 				<0 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
@@ -881,7 +886,7 @@
 		};
 	};
 
-	sdio0 {			//5;10;15;20
+	sdio0 {
 		sdio0_bus1: sdio0-bus1 {
 			rockchip,pins =
 				<2 RK_PC4 1 &pcfg_pull_up>;
@@ -916,8 +921,8 @@
 		};
 
 		sdio0_bkpwr: sdio0-bkpwr {
-				rockchip,pins =
-					<2 RK_PD4 1 &pcfg_pull_up>;
+			rockchip,pins =
+				<2 RK_PD4 1 &pcfg_pull_up>;
 		};
 
 		sdio0_wp: sdio0-wp {
@@ -933,20 +938,8 @@
 
 	sdio-pwrseq {
 		wifi_host_wake_l: wifi-host-wake-l {
-			rockchip,pins = 
+			rockchip,pins =
 				<0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
-	sdmmc {
-		sdmmc0_det_l: sdmmc0-det-l {
-			rockchip,pins = 
-				<0 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
-		};
-
-		sdmmc0_pwr_h: sdmmc0-pwr-h {
-			rockchip,pins = 
-				<2 RK_PD4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
@@ -961,7 +954,7 @@
 };
 
 &pwm2 {
-	status = "okay";	//vdd_log
+	status = "okay";
 };
 
 &saradc {
@@ -979,7 +972,6 @@
 
 &sdio0 {
 	bus-width = <4>;
-	//clock-frequency = <50000000>;
 	cap-sdio-irq;
 	supports-sdio;
 	cap-sd-highspeed;
@@ -1011,7 +1003,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdmmc_bus4 &sdmmc_clk &sdmmc_cmd &sdmmc0_det_l>;
 	status = "okay";
-	//vmmc-supply = <&vcc3v3_sd>;
 	vqmmc-supply = <&vcc3v3_sd>;
 };
 
@@ -1024,9 +1015,7 @@
 };
 
 &tsadc {
-	/* tshut mode 0:CRU 1:GPIO */
 	rockchip,hw-tshut-mode = <1>;
-	/* tshut polarity 0:LOW 1:HIGH */
 	rockchip,hw-tshut-polarity = <1>;
 	status = "okay";
 };
@@ -1064,7 +1053,7 @@
 };
 
 &uart2 {
-	status = "okay";	//ttl
+	status = "okay";
 };
 
 &usb_host0_ehci {
