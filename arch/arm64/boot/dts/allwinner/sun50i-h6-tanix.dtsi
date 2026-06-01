@@ -217,8 +217,8 @@
 };
 
 &usb2otg {
-	dr_mode = "host";
-	status = "okay";
+	/* musb is re-routed to ehci0 on H6; keep disabled to avoid phy PM refcount underflow */
+	status = "disabled";
 };
 
 &usb2phy {
