@@ -261,6 +261,7 @@
 };
 
 &combphy1 {
+	phy-supply = <&vcc5v0_host>;
 	status = "okay";
 };
 
@@ -549,6 +550,10 @@
 	status = "okay";
 };
 
+&usb2phy0 {
+	status = "okay";
+};
+
 &usb2phy0_host {
 	phy-supply = <&vcc5v0_host>;
 	status = "okay";
@@ -578,6 +583,12 @@
 };
 
 &usb_host0_ohci {
+	status = "okay";
+};
+
+&usb_host0_xhci {
+	/delete-property/ extcon;
+	dr_mode = "host";
 	status = "okay";
 };
 
