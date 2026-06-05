@@ -94,17 +94,19 @@ static int sunxi_wdt_restart(struct watchdog_device *wdt_dev,
 	val |= regs->wdt_key_val;
 	writel(val, wdt_base + regs->wdt_cfg);
 
-	/* Set lowest timeout and enable watchdog */
+	/*
+	 * Set 1s timeout and enable watchdog.  Using the hardware minimum
+	 * of 0.5s (timeout field = 0) risks a reset loop: after the SoC
+	 * hardware reset the watchdog registers are not cleared, so the
+	 * 0.5s counter expires again before U-Boot can disable the watchdog.
+	 */
 	val = readl(wdt_base + regs->wdt_mode);
 	val &= ~(WDT_TIMEOUT_MASK << regs->wdt_timeout_shift);
+	val |= wdt_timeout_map[1] << regs->wdt_timeout_shift;
 	val |= WDT_MODE_EN;
 	val |= regs->wdt_key_val;
 	writel(val, wdt_base + regs->wdt_mode);
 
-	/*
-	 * Restart the watchdog. The default (and lowest) interval
-	 * value for the watchdog is 0.5s.
-	 */
 	writel(WDT_CTRL_RELOAD, wdt_base + regs->wdt_ctrl);
 
 	while (1) {
