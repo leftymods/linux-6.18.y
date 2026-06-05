@@ -282,7 +282,15 @@ static int sunxi_wdt_probe(struct platform_device *pdev)
 
 	watchdog_init_timeout(&sunxi_wdt->wdt_dev, timeout, dev);
 	watchdog_set_nowayout(&sunxi_wdt->wdt_dev, nowayout);
-	watchdog_set_restart_priority(&sunxi_wdt->wdt_dev, 128);
+	/*
+	 * Use a restart priority higher than PSCI (129) so that the watchdog
+	 * hardware reset fires before PSCI SYSTEM_RESET is attempted.
+	 * On Allwinner H6 + Crust SCP, PSCI SYSTEM_RESET is forwarded via
+	 * SCPI to the PMIC as a power-cycle, which results in power-off
+	 * rather than a reboot.  The sunxi watchdog performs a true SoC
+	 * hardware reset and must therefore run first.
+	 */
+	watchdog_set_restart_priority(&sunxi_wdt->wdt_dev, 192);
 
 	watchdog_set_drvdata(&sunxi_wdt->wdt_dev, sunxi_wdt);
 
