@@ -13,6 +13,11 @@
 	compatible = "cyx,a95xf3-air-gbit", "amlogic,sm1";
 	model = "Shenzhen CYX Industrial Co., Ltd A95XF3-AIR";
 
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>; /* 2 GiB */
+	};
+
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "A95XF3-AIR";
