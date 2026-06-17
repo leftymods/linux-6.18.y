@@ -1,0 +1,465 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 CRRC
+ *
+ */
+
+/dts-v1/;
+#include "rk3399-puma.dtsi"
+
+/ {
+	model = "CRRC RK3399 Board";
+	compatible = "TT,CRRC", "rockchip,rk3399";
+
+	aliases {
+		mmc1 = &sdmmc;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	leds {
+		pinctrl-0 = <&module_led_pin>, <&sd_card_led_pin>;
+
+		sd_card_led: led-1 {
+			label = "sd_card_led";
+			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc0";
+		};
+	};
+
+	/* 12V DC input */
+	dc_12v: regulator-dc-12v {
+		compatible = "regulator-fixed";
+		regulator-name = "dc_12v";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+	};
+
+	vcc3v3_baseboard: regulator-vcc3v3-baseboard {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_baseboard";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&dc_12v>;
+	};
+
+	vcc5v0_baseboard: regulator-vcc5v0-baseboard {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc5v0_baseboard";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&dc_12v>;
+	};
+
+	/*
+	 * USB2 Host1 VBUS: enable via gpio1 RK_PB5 (active-high).
+	 * Pinctrl configures gpio4 RK_PA3 as GPIO (separate signal on CRRC board).
+	 */
+	vcc5v0_host: regulator-vcc5v0-host {
+		compatible = "regulator-fixed";
+		gpio = <&gpio1 RK_PB5 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vcc5v0_host_en>;
+		regulator-name = "vcc5v0_host";
+		regulator-always-on;
+		enable-active-high;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	/*
+	 * USB OTG VBUS: enable via gpio1 RK_PA3 (active-high).
+	 * Pinctrl configures gpio0 RK_PA2 as GPIO (separate control signal).
+	 * Note: both DWC3 controllers run in host mode on this board.
+	 */
+	vcc5v0_otg: regulator-vcc5v0-otg {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpios = <&gpio1 RK_PA3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&otg_vbus_drv>;
+		regulator-name = "vcc5v0_otg";
+		regulator-always-on;
+	};
+
+	/* Audio codec power supplies */
+	vdda_codec: regulator-vdda-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdda_codec";
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vcc5v0_baseboard>;
+	};
+
+	vddd_codec: regulator-vddd-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vddd_codec";
+		regulator-boot-on;
+		regulator-min-microvolt = <1600000>;
+		regulator-max-microvolt = <1600000>;
+		vin-supply = <&vcc5v0_baseboard>;
+	};
+
+	/* I2S audio card with SGTL5000 */
+	i2s0_sound: i2s0-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "Haikou,I2S-codec";
+		simple-audio-card,mclk-fs = <512>;
+
+		simple-audio-card,codec {
+			clocks = <&sgtl5000_clk>;
+			sound-dai = <&sgtl5000>;
+		};
+
+		simple-audio-card,cpu {
+			bitclock-master;
+			frame-master;
+			sound-dai = <&i2s0>;
+		};
+	};
+
+	sgtl5000_clk: sgtl5000-oscillator {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>;
+	};
+};
+
+/*
+ * GMAC: RGMII with external 125MHz clock input.
+ * tx_delay/rx_delay are CRRC board-specific PHY timing values.
+ * snps,txpbl=4 matches the original firmware configuration.
+ */
+&gmac {
+	snps,txpbl = <4>;
+	tx_delay = <0x28>;
+	rx_delay = <0x11>;
+	status = "okay";
+};
+
+/* GPU disabled on this board */
+&gpu {
+	status = "disabled";
+};
+
+/* HDMI: DDC via i2c3 (same as Puma) */
+&hdmi {
+	ddc-i2c-bus = <&i2c3>;
+	status = "okay";
+};
+
+/* hdmi-sound disabled on this board */
+&hdmi_sound {
+	status = "disabled";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+/* i2c3: used for HDMI DDC */
+&i2c3 {
+	i2c-scl-rising-time-ns = <450>;
+	i2c-scl-falling-time-ns = <15>;
+	status = "okay";
+};
+
+/* i2c4: SGTL5000 audio codec */
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sgtl5000: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		clocks = <&sgtl5000_clk>;
+		#sound-dai-cells = <0>;
+		VDDA-supply = <&vdda_codec>;
+		VDDIO-supply = <&vdda_codec>;
+		VDDD-supply = <&vddd_codec>;
+		status = "disabled";
+	};
+};
+
+/* i2c5 disabled on this board */
+&i2c5 {
+	status = "disabled";
+};
+
+&i2c6 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+/*
+ * i2c7: fan controller and RTC.
+ * Note: on CRRC board the fan is a plain ti,amc6821 (no tsd,mule i2c-mux),
+ * and the rtc@6f is directly on the i2c7 bus.
+ */
+&i2c7 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	fan: fan@18 {
+		compatible = "ti,amc6821";
+		reg = <0x18>;
+		#cooling-cells = <2>;
+	};
+
+	rtc@6f {
+		compatible = "isil,isl1208";
+		reg = <0x6f>;
+	};
+};
+
+/* i2s0: active for audio */
+&i2s0 {
+	rockchip,playback-channels = <2>;
+	rockchip,capture-channels = <2>;
+	status = "okay";
+};
+
+/* i2s1: disabled on this board */
+&i2s1 {
+	status = "disabled";
+};
+
+/* i2s2: disabled on this board */
+&i2s2 {
+	status = "disabled";
+};
+
+/*
+ * PCIe x4: ep reset via GPIO4 PC6.
+ * pcie_clkreqn_cpm pin is pcfg_pull_none (differs from Puma which uses pull_up).
+ */
+&pcie0 {
+	ep-gpios = <&gpio4 RK_PC6 GPIO_ACTIVE_HIGH>;
+	num-lanes = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_clkreqn_cpm>;
+	vpcie3v3-supply = <&vcc3v3_baseboard>;
+	vpcie12v-supply = <&dc_12v>;
+	status = "okay";
+};
+
+&pcie_phy {
+	status = "okay";
+};
+
+/* Override pcie clkreq pin to pcfg_pull_none as per CRRC hardware */
+&pcie_clkreqn_cpm {
+	rockchip,pins =
+		<2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+};
+
+&pinctrl {
+	leds {
+		sd_card_led_pin: sd-card-led-pin {
+			rockchip,pins =
+				<1 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	usb2 {
+		/* Pinctrl for gpio4 RK_PA3 as GPIO (separate board signal) */
+		vcc5v0_host_en: vcc5v0-host-en {
+			rockchip,pins =
+				<4 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		/* Pinctrl for gpio0 RK_PA2 as GPIO (separate board signal) */
+		otg_vbus_drv: otg-vbus-drv {
+			rockchip,pins =
+				<0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	/*
+	 * Board hog: configure gpio0 PA4/PB1/PB2/PB3 as GPIO input with pull-up.
+	 * These correspond to LID_BTN#/WAKE#/BATLOW#/SLP_BTN# signals.
+	 */
+	hog {
+		haikou_pin_hog: haikou-pin-hog {
+			rockchip,pins =
+				<0 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>,
+				<0 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
+				<0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>,
+				<0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+};
+
+/* Append board hog to pinctrl top-level */
+&pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&haikou_pin_hog>;
+};
+
+&pwm0 {
+	status = "okay";
+};
+
+/*
+ * SD card (TF card) slot: 4-bit bus.
+ * CD: gpio0 RK_PA7, active-low.
+ * vqmmc: vcc_sd (1.8V/3.0V switchable from RK808 LDO4).
+ * vmmc: vcc3v3_baseboard (fixed 3.3V).
+ * max-frequency kept at 150MHz per original firmware (sdmmc controller max).
+ */
+&sdmmc {
+	bus-width = <4>;
+	cap-mmc-highspeed;
+	cap-sd-highspeed;
+	cd-gpios = <&gpio0 RK_PA7 GPIO_ACTIVE_LOW>;
+	disable-wp;
+	max-frequency = <150000000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc_clk &sdmmc_cmd &sdmmc_cd &sdmmc_bus4>;
+	vqmmc-supply = <&vcc_sd>;
+	vmmc-supply = <&vcc3v3_baseboard>;
+	status = "okay";
+};
+
+/* eMMC 8-bit HS400 */
+&sdhci {
+	bus-width = <8>;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	non-removable;
+	status = "okay";
+};
+
+/* SPI NOR flash on SPI1 */
+&spi1 {
+	status = "okay";
+
+	norflash: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+/* SPI5 enabled */
+&spi5 {
+	status = "okay";
+};
+
+/* TypeC PHY 0: DP + USB3 SuperSpeed */
+&tcphy0 {
+	status = "okay";
+};
+
+/* TypeC PHY 1: USB3 SuperSpeed */
+&tcphy1 {
+	status = "okay";
+};
+
+&tsadc {
+	rockchip,hw-tshut-mode = <1>;
+	rockchip,hw-tshut-polarity = <1>;
+	status = "okay";
+};
+
+/*
+ * USB2 PHY 0: host port active, phy-supply = vcc5v0_otg.
+ * otg-port disabled: DWC3-0 runs in host-only mode.
+ */
+&u2phy0 {
+	status = "okay";
+
+	u2phy0_host: host-port {
+		phy-supply = <&vcc5v0_otg>;
+		status = "okay";
+	};
+
+	u2phy0_otg: otg-port {
+		status = "disabled";
+	};
+};
+
+/*
+ * USB2 PHY 1: host port active, phy-supply = vcc5v0_host.
+ * otg-port okay: DWC3-1 runs in host mode, otg-port is the USB2 path.
+ */
+&u2phy1 {
+	status = "okay";
+
+	u2phy1_host: host-port {
+		phy-supply = <&vcc5v0_host>;
+		status = "okay";
+	};
+
+	u2phy1_otg: otg-port {
+		status = "okay";
+	};
+};
+
+/* USB3 DWC3-0: host mode */
+&usbdrd3_0 {
+	status = "okay";
+};
+
+&usbdrd_dwc3_0 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+/* USB3 DWC3-1: host mode */
+&usbdrd3_1 {
+	status = "okay";
+};
+
+&usbdrd_dwc3_1 {
+	dr_mode = "host";
+	status = "okay";
+};
+
+/* UART0: console at 115200 */
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_xfer &uart0_cts &uart0_rts>;
+	status = "okay";
+};
+
+/*
+ * UART2: uses pinctrl uart2c (gpio4 PC3/PC4 function 1).
+ * This is different from the Puma/Haikou default.
+ */
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2c_xfer>;
+	status = "okay";
+};
+
+&vopb {
+	status = "okay";
+};
+
+&vopb_mmu {
+	status = "okay";
+};
+
+&vopl {
+	status = "okay";
+};
+
+&vopl_mmu {
+	status = "okay";
+};

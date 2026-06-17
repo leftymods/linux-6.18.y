@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
+ */
+
+/dts-v1/;
+#include "rk3568-lz-k3568.dts"
+
+/ {
+	model = "LZ-D3568 HW3.0";
+
+	aliases {
+		serial0 = &uart0;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		serial4 = &uart4;
+		serial5 = &uart5;
+		serial6 = &uart6;
+		serial7 = &uart7;
+		serial8 = &uart8;
+		serial9 = &uart9;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_xfer>;
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3m1_xfer>;
+};
+
+/* LCD屏幕 */
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart4m1_xfer>;
+};
+
+&uart5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5m1_xfer>;
+};
+
+&uart7 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart7m1_xfer>;
+};
+
+&uart8 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart8m1_xfer>;
+};
+
+&uart9 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart9m1_xfer>;
+};
+
+&can1 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can1m0_pins>;
+};
+
+&can2 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can2m0_pins>;
+};
+
+
+// Conflict Analysis:
+// uart0 (phandle 0x48) uses GPIO0_C0 (Pin 16) as Function 3.
+// pwm1 (phandle 0x4a) uses GPIO0_C0 (Pin 16) as Function 1 (pwm1m0-pins).
+&pwm1 {
+	status = "disabled";
+};
+
+// Conflict Analysis:
+// uart0 (phandle 0x48) uses GPIO0_C1 (Pin 17) as Function 3.
+// pwm2 (phandle 0x4b) uses GPIO0_C1 (Pin 17) as Function 1 (pwm2m0-pins).
+&pwm2 {
+	status = "disabled";
+};
+
+&usb_host0_xhci {
+	status = "okay";
+};
+
+&usb_host1_xhci {
+	status = "okay";
+};
+
+&sata0 {
+	status = "disabled";
+};
+
+// HW3.0 no sata1 but usb3.0
+&sata1 {
+	status = "disabled";
+};

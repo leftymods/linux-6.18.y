@@ -1,0 +1,383 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2019 BayLibre SAS. All rights reserved.
+ * Copyright (c) 2020 Christian Hewitt <christianshewitt@gmail.com>
+ */
+
+/dts-v1/;
+
+#include "meson-sm1-ac2xx.dtsi"
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/sound/meson-g12a-tohdmitx.h>
+#include <dt-bindings/sound/meson-g12a-toacodec.h>
+
+/ {
+	compatible = "TOX1", "amlogic,sm1";
+	model = "TrustOnX TOX1";
+
+	/delete-node/ memory@0;
+
+	sound {
+		compatible = "amlogic,axg-sound-card";
+		model = "MESONSM1AC2XX";
+		audio-widgets = "Line", "Lineout";
+		audio-aux-devs = <&tdmout_b>, <&tdmout_c>,
+				 <&tdmin_a>, <&tdmin_b>, <&tdmin_c>;
+		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
+				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
+				"TDM_B Playback", "TDMOUT_B OUT",
+				"TDMOUT_C IN 0", "FRDDR_A OUT 2",
+				"TDMOUT_C IN 1", "FRDDR_B OUT 2",
+				"TDMOUT_C IN 2", "FRDDR_C OUT 2",
+				"TDM_C Playback", "TDMOUT_C OUT",
+				"TDMIN_A IN 4", "TDM_B Loopback",
+				"TDMIN_B IN 4", "TDM_B Loopback",
+				"TDMIN_C IN 4", "TDM_B Loopback",
+				"TDMIN_A IN 5", "TDM_C Loopback",
+				"TDMIN_B IN 5", "TDM_C Loopback",
+				"TDMIN_C IN 5", "TDM_C Loopback",
+				"TODDR_A IN 0", "TDMIN_A OUT",
+				"TODDR_B IN 0", "TDMIN_A OUT",
+				"TODDR_C IN 0", "TDMIN_A OUT",
+				"TODDR_A IN 1", "TDMIN_B OUT",
+				"TODDR_B IN 1", "TDMIN_B OUT",
+				"TODDR_C IN 1", "TDMIN_B OUT",
+				"TODDR_A IN 2", "TDMIN_C OUT",
+				"TODDR_B IN 2", "TDMIN_C OUT",
+				"TODDR_C IN 2", "TDMIN_C OUT",
+				"Lineout", "ACODEC LOLP",
+				"Lineout", "ACODEC LORP";
+
+		assigned-clocks = <&clkc CLKID_MPLL2>,
+				  <&clkc CLKID_MPLL0>,
+				  <&clkc CLKID_MPLL1>;
+		assigned-clock-parents = <0>, <0>, <0>;
+		assigned-clock-rates = <294912000>,
+				       <270950400>,
+				       <393216000>;
+		status = "okay";
+
+		dai-link-0 {
+			sound-dai = <&frddr_a>;
+		};
+
+		dai-link-1 {
+			sound-dai = <&frddr_b>;
+		};
+
+		dai-link-2 {
+			sound-dai = <&frddr_c>;
+		};
+
+		dai-link-3 {
+			sound-dai = <&toddr_a>;
+		};
+
+		dai-link-4 {
+			sound-dai = <&toddr_b>;
+		};
+
+		dai-link-5 {
+			sound-dai = <&toddr_c>;
+		};
+
+		/* 8ch hdmi interface */
+		dai-link-6 {
+			sound-dai = <&tdmif_b>;
+			dai-format = "i2s";
+			dai-tdm-slot-tx-mask-0 = <1 1>;
+			dai-tdm-slot-tx-mask-1 = <1 1>;
+			dai-tdm-slot-tx-mask-2 = <1 1>;
+			dai-tdm-slot-tx-mask-3 = <1 1>;
+			mclk-fs = <256>;
+
+			codec-0 {
+				sound-dai = <&tohdmitx TOHDMITX_I2S_IN_B>;
+			};
+
+			codec-1 {
+				sound-dai = <&toacodec TOACODEC_IN_B>;
+			};
+		};
+
+		/* i2s interface */
+		dai-link-7 {
+			sound-dai = <&tdmif_c>;
+			dai-format = "i2s";
+			dai-tdm-slot-tx-mask-0 = <1 1>;
+			mclk-fs = <256>;
+
+			codec-0 {
+				sound-dai = <&tohdmitx TOHDMITX_I2S_IN_C>;
+			};
+
+			codec-1 {
+				sound-dai = <&toacodec TOACODEC_IN_C>;
+			};
+		};
+
+		/* hdmi glue */
+		dai-link-8 {
+			sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
+
+			codec {
+				sound-dai = <&hdmi_tx>;
+			};
+		};
+
+		/* internal codec glue */
+		dai-link-9 {
+			sound-dai = <&toacodec TOACODEC_OUT>;
+
+			codec {
+				sound-dai = <&acodec>;
+			};
+		};
+	};
+
+	vdd_ee: regulator-vdd_ee {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_ee";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+		vin-supply = <&ao_5v>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	led-controller {
+		compatible = "gpio-leds";
+
+		led-blue {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "rc-feedback";
+			default-state = "off";
+			panic-indicator;
+		};
+	};
+
+	gpio-keys-polled {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+
+		power-button {
+			wakeup-source;
+			label = "power";
+			linux,code = <KEY_POWER>;
+			gpios = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	fd6551 {
+		compatible = "devmfc,fd6551";
+		dat-gpios = <&gpio GPIOA_14 GPIO_OPEN_DRAIN>;
+		clk-gpios = <&gpio GPIOA_15 GPIO_OPEN_DRAIN>;
+		segment-mapping = <0x10203 0x40506ff
+				   0x10111213 0x141516ff
+				   0x20212223 0x242526ff
+				   0x30313233 0x343536ff
+				   0x454041ff 0x46ffffff
+				   0x444243ff 0xff45ffff>;
+		status = "okay";
+	};
+};
+
+&vddcpu {
+	regulator-min-microvolt = <690000>;
+	regulator-max-microvolt = <1050000>;
+	pwms = <&pwm_AO_cd 1 1500 0>;
+	regulator-ramp-delay = <2500>;
+};
+
+&cpu_opp_table {
+	opp-100000000 {
+		opp-hz = /bits/ 64 <100000000>;
+		opp-microvolt = <730000>;
+	};
+
+	opp-250000000 {
+		opp-hz = /bits/ 64 <250000000>;
+		opp-microvolt = <730000>;
+	};
+
+	opp-500000000 {
+		opp-hz = /bits/ 64 <500000000>;
+		opp-microvolt = <730000>;
+	};
+
+	opp-667000000 {
+		opp-hz = /bits/ 64 <666666666>;
+		opp-microvolt = <750000>;
+	};
+
+	/delete-node/ opp-2016000000;
+	/delete-node/ opp-2100000000;
+};
+
+/delete-node/ &openvfd;
+
+&cpu0 {
+	/delete-property/ clock-latency;
+};
+
+&cpu1 {
+	/delete-property/ clock-latency;
+};
+
+&cpu2 {
+	/delete-property/ clock-latency;
+};
+
+&cpu3 {
+	/delete-property/ clock-latency;
+};
+
+&arb {
+	status = "okay";
+};
+
+&clkc_audio {
+	status = "okay";
+};
+
+&ethmac {
+	status = "okay";
+	pinctrl-0 = <&eth_pins>, <&eth_rgmii_pins>;
+	pinctrl-names = "default";
+	phy-handle = <&external_phy>;
+	phy-mode = "rgmii";
+	amlogic,rx-delay-ns = <0>;
+	rx-internal-delay-ps = <200>;
+};
+
+&ext_mdio {
+	external_phy: ethernet-phy@0 {
+		reg = <0>;
+		max-speed = <1000>;
+		eee-broken-1000t;
+
+		reset-assert-us = <10000>;
+		reset-deassert-us = <80000>;
+		reset-gpios = <&gpio GPIOZ_14 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+		interrupt-parent = <&gpio_intc>;
+		interrupts = <IRQID_GPIOZ_15 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&frddr_a {
+	status = "okay";
+};
+
+&frddr_b {
+	status = "okay";
+};
+
+&frddr_c {
+	status = "okay";
+};
+
+&toddr_a {
+	status = "okay";
+};
+
+&toddr_b {
+	status = "okay";
+};
+
+&toddr_c {
+	status = "okay";
+};
+
+&tdmif_b {
+	status = "okay";
+};
+
+&tdmif_c {
+	status = "okay";
+};
+
+&tdmout_b {
+	status = "okay";
+};
+
+&tdmout_c {
+	status = "okay";
+};
+
+&tdmin_a {
+	status = "okay";
+};
+
+&tdmin_b {
+	status = "okay";
+};
+
+&tdmin_c {
+	status = "okay";
+};
+
+&tohdmitx {
+	status = "okay";
+};
+
+&toacodec {
+	status = "okay";
+};
+
+&acodec {
+	status = "okay";
+};
+
+&uart_A {
+	status = "okay";
+	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
+	pinctrl-names = "default";
+	uart-has-rtscts;
+	amlogic,xtal_tick_en = <0x02>;
+	amlogic,uart-fifosize = <0x80>;
+
+	bluetooth {
+		compatible = "realtek,rtl8822cs-bt";
+		interrupt-parent = <&gpio_intc>;
+		interrupts = <IRQID_GPIOX_18 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "host-wakeup";
+		enable-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
+		max-speed = <1500000>;
+		clocks = <&wifi32k>;
+		clock-names = "lpo";
+		vbat-supply = <&vddao_3v3>;
+		vddio-supply = <&vddio_ao1v8>;
+	};
+};
+
+&ir {
+	linux,rc-map-name = "rc-x96max";
+};
+
+&mali {
+	mali-supply = <&vdd_ee>;
+};
+
+&usb {
+	dr_mode = "otg";
+};
+
+&sdio_pwrseq {
+	post-power-on-delay-ms = <200>;
+	power-off-delay-us = <10000>;
+};
+
+/* SDIO */
+&sd_emmc_a {
+	/delete-property/ sd-uhs-sdr104;
+	max-frequency = <50000000>;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+};

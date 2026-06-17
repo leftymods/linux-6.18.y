@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2023 Arm Ltd.
+ */
+
+/dts-v1/;
+
+#include "sun50i-h616-orangepi-zero.dtsi"
+#include "sun50i-h616-cpu-opp.dtsi"
+#include "sun50i-h618-cpu-dvfs.dtsi"
+
+/ {
+	model = "OrangePi Zero3";
+	compatible = "xunlong,orangepi-zero3", "allwinner,sun50i-h618";
+};
+
+&cpu0 {
+	cpu-supply = <&reg_dcdc2>;
+};
+
+&emac0 {
+	allwinner,tx-delay-ps = <700>;
+	phy-mode = "rgmii-rxid";
+	phy-supply = <&reg_dldo1>;
+};
+
+&ext_rgmii_phy {
+	motorcomm,clk-out-frequency-hz = <125000000>;
+};
+
+&gpu {
+	mali-supply = <&reg_dcdc1>;
+	status = "okay";
+};
+
+&hdmi {
+	hvcc-supply = <&reg_aldo1>;
+	status = "okay";
+};
+
+&mmc0 {
+	/*
+	 * The schematic shows the card detect pin wired up to PF6, via an
+	 * inverter, but it just doesn't work.
+	 */
+	broken-cd;
+	vmmc-supply = <&reg_dldo1>;
+};
+
+&pio {
+	vcc-pc-supply = <&reg_dldo1>;
+	vcc-pf-supply = <&reg_dldo1>;
+	vcc-pg-supply = <&reg_aldo1>;
+	vcc-ph-supply = <&reg_dldo1>;
+	vcc-pi-supply = <&reg_dldo1>;
+};
