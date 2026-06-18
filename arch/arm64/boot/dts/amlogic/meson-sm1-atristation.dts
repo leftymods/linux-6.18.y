@@ -11,7 +11,6 @@
 
 #include "meson-sm1.dtsi"
 #include <dt-bindings/gpio/meson-g12a-gpio.h>
-#include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/sound/meson-g12a-toacodec.h>
 #include <dt-bindings/sound/meson-g12a-tohdmitx.h>
@@ -146,7 +145,7 @@
 		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
 				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
 				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
-				"TDM_A Playback", "TDMOUT_B OUT";
+				"TDM_B Playback", "TDMOUT_B OUT";
 
 		dai-link-0 {
 			sound-dai = <&frddr_a>;
@@ -184,24 +183,6 @@
 			codec {
 				sound-dai = <&hdmi_tx>;
 			};
-		};
-	};
-
-	/* Buttons */
-	gpio-keys {
-		compatible = "gpio-keys";
-		autorepeat;
-
-		button-function {
-			label = "Function";
-			linux,code = <KEY_ASSISTANT>;
-			gpios = <&gpio GPIOX_0 GPIO_ACTIVE_LOW>;
-		};
-
-		button-micmute {
-			label = "Mic Mute";
-			linux,code = <KEY_MICMUTE>;
-			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -277,6 +258,10 @@
 	status = "okay";
 };
 
+&clkc_audio {
+	status = "okay";
+};
+
 &cpu0 {
 	cpu-supply = <&vddcpu>;
 };
@@ -304,13 +289,11 @@
 
 &ext_mdio {
 	external_phy: ethernet-phy@0 {
+		reg = <0>;
 		max-speed = <1000>;
 		reset-assert-us = <10000>;
 		reset-deassert-us = <80000>;
 		reset-gpios = <&gpio GPIOZ_15 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
-
-		interrupt-parent = <&gpio_intc>;
-		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -409,6 +392,10 @@
 	status = "okay";
 };
 
+&tohdmitx {
+	status = "okay";
+};
+
 &uart_AO {
 	status = "okay";
 	pinctrl-0 = <&uart_ao_a_pins>;
@@ -424,10 +411,10 @@
 	phy-supply = <&vcc_5v>;
 };
 
-/* I2C0 - LED ring, light sensor, EEPROM */
+/* I2C0 - LED ring, light sensor, EEPROM (GPIOZ pins to avoid SD card conflict) */
 &i2c0 {
 	status = "okay";
-	pinctrl-0 = <&i2c0_sda_c_pins>;
+	pinctrl-0 = <&i2c0_sda_z0_pins>, <&i2c0_sck_z1_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <400000>;
 
@@ -437,6 +424,114 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "okay";
+		led@1 {
+			reg = <1>;
+		};
+		led@2 {
+			reg = <2>;
+		};
+		led@3 {
+			reg = <3>;
+		};
+		led@4 {
+			reg = <4>;
+		};
+		led@5 {
+			reg = <5>;
+		};
+		led@6 {
+			reg = <6>;
+		};
+		led@7 {
+			reg = <7>;
+		};
+		led@8 {
+			reg = <8>;
+		};
+		led@9 {
+			reg = <9>;
+		};
+		led@10 {
+			reg = <10>;
+		};
+		led@11 {
+			reg = <11>;
+		};
+		led@12 {
+			reg = <12>;
+		};
+		led@13 {
+			reg = <13>;
+		};
+		led@14 {
+			reg = <14>;
+		};
+		led@15 {
+			reg = <15>;
+		};
+		led@16 {
+			reg = <16>;
+		};
+		led@17 {
+			reg = <17>;
+		};
+		led@18 {
+			reg = <18>;
+		};
+		led@19 {
+			reg = <19>;
+		};
+		led@20 {
+			reg = <20>;
+		};
+		led@21 {
+			reg = <21>;
+		};
+		led@22 {
+			reg = <22>;
+		};
+		led@23 {
+			reg = <23>;
+		};
+		led@24 {
+			reg = <24>;
+		};
+		led@25 {
+			reg = <25>;
+		};
+		led@26 {
+			reg = <26>;
+		};
+		led@27 {
+			reg = <27>;
+		};
+		led@28 {
+			reg = <28>;
+		};
+		led@29 {
+			reg = <29>;
+		};
+		led@30 {
+			reg = <30>;
+		};
+		led@31 {
+			reg = <31>;
+		};
+		led@32 {
+			reg = <32>;
+		};
+		led@33 {
+			reg = <33>;
+		};
+		led@34 {
+			reg = <34>;
+		};
+		led@35 {
+			reg = <35>;
+		};
+		led@36 {
+			reg = <36>;
+		};
 	};
 
 	is31fl3236_3f: led-controller@3f {
@@ -445,10 +540,118 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "okay";
+		led@1 {
+			reg = <1>;
+		};
+		led@2 {
+			reg = <2>;
+		};
+		led@3 {
+			reg = <3>;
+		};
+		led@4 {
+			reg = <4>;
+		};
+		led@5 {
+			reg = <5>;
+		};
+		led@6 {
+			reg = <6>;
+		};
+		led@7 {
+			reg = <7>;
+		};
+		led@8 {
+			reg = <8>;
+		};
+		led@9 {
+			reg = <9>;
+		};
+		led@10 {
+			reg = <10>;
+		};
+		led@11 {
+			reg = <11>;
+		};
+		led@12 {
+			reg = <12>;
+		};
+		led@13 {
+			reg = <13>;
+		};
+		led@14 {
+			reg = <14>;
+		};
+		led@15 {
+			reg = <15>;
+		};
+		led@16 {
+			reg = <16>;
+		};
+		led@17 {
+			reg = <17>;
+		};
+		led@18 {
+			reg = <18>;
+		};
+		led@19 {
+			reg = <19>;
+		};
+		led@20 {
+			reg = <20>;
+		};
+		led@21 {
+			reg = <21>;
+		};
+		led@22 {
+			reg = <22>;
+		};
+		led@23 {
+			reg = <23>;
+		};
+		led@24 {
+			reg = <24>;
+		};
+		led@25 {
+			reg = <25>;
+		};
+		led@26 {
+			reg = <26>;
+		};
+		led@27 {
+			reg = <27>;
+		};
+		led@28 {
+			reg = <28>;
+		};
+		led@29 {
+			reg = <29>;
+		};
+		led@30 {
+			reg = <30>;
+		};
+		led@31 {
+			reg = <31>;
+		};
+		led@32 {
+			reg = <32>;
+		};
+		led@33 {
+			reg = <33>;
+		};
+		led@34 {
+			reg = <34>;
+		};
+		led@35 {
+			reg = <35>;
+		};
+		led@36 {
+			reg = <36>;
+		};
 	};
 
 	als@53 {
-		compatible = "liteon,ltr308";
+		compatible = "liteon,ltrf216a";
 		reg = <0x53>;
 		status = "okay";
 	};
@@ -546,15 +749,6 @@
 	};
 };
 
-/* PDM - 4ch digital mic array */
-&pdm {
-	status = "okay";
-	pinctrl-0 = <&pdm_din0_c_pins>, <&pdm_din1_c_pins>,
-		    <&pdm_din2_c_pins>, <&pdm_din3_c_pins>,
-		    <&pdm_dclk_c_pins>;
-	pinctrl-names = "default";
-};
-
 &gpio_ao {
 	amplifier_pwr {
 		gpio-hog;
@@ -562,19 +756,6 @@
 		output-high;
 		line-name = "amplifier-power";
 	};
-};
-
-/* TDM_A - audio to HDMI + speaker amps */
-&tdmif_a {
-	status = "okay";
-};
-
-&tdmout_a {
-	status = "okay";
-};
-
-&tohdmitx {
-	status = "okay";
 };
 
 /* WiFi RTL8822CS SDIO */
