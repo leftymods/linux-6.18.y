@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/silergy,sy6045s.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Silergy SY6045S Class-D audio amplifier
+
+maintainers:
+  - AtriOS Team <leftymods@users.noreply.github.com>
+
+description: |
+  Silergy SY6045S digital input Class-D audio amplifier.
+
+properties:
+  compatible:
+    enum:
+      - silergy,sy6045s
+
+  reg:
+    maxItems: 1
+
+  "#sound-dai-cells":
+    const: 0
+
+  vddio-supply:
+    description: Digital I/O supply (typically 3.3V)
+
+  pvdd-supply:
+    description: Power supply for output stage (typically 5V or 12V)
+
+  pbtl-mode:
+    type: boolean
+    description: Enable PBTL (Parallel BTL) mode for bridged mono operation
+
+required:
+  - compatible
+  - reg
+  - vddio-supply
+  - pvdd-supply
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      tweeter_amp: amplifier@2a {
+        compatible = "silergy,sy6045s";
+        reg = <0x2a>;
+        #sound-dai-cells = <0>;
+        vddio-supply = <&vcc_3v3>;
+        pvdd-supply = <&vcc_5v>;
+      };
+
+      woofer_amp: amplifier@2b {
+        compatible = "silergy,sy6045s";
+        reg = <0x2b>;
+        #sound-dai-cells = <0>;
+        vddio-supply = <&vcc_3v3>;
+        pvdd-supply = <&vcc_5v>;
+        pbtl-mode;
+      };
+    };

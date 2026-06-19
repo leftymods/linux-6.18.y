@@ -12,6 +12,7 @@
 #include "meson-sm1.dtsi"
 #include <dt-bindings/gpio/meson-g12a-gpio.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/clock/axg-audio-clkc.h>
 #include <dt-bindings/sound/meson-g12a-toacodec.h>
 #include <dt-bindings/sound/meson-g12a-tohdmitx.h>
 
@@ -140,22 +141,21 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "ATRISTATION";
-		audio-aux-devs = <&tdmout_a>, <&tdmout_b>,
-				 <&tdmin_a>;
+		audio-aux-devs = <&tdmout_b>, <&tdmin_b>,
+				 <&tdmout_a>;
 
-		audio-routing = "TDMOUT_A IN 0", "FRDDR_A OUT 0",
-				"TDMOUT_A IN 1", "FRDDR_B OUT 0",
-				"TDMOUT_A IN 2", "FRDDR_C OUT 0",
-				"TDM_A Playback", "TDMOUT_A OUT",
-				"TDMOUT_B IN 0", "FRDDR_A OUT 1",
-				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
-				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
+		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 0",
+				"TDMOUT_B IN 1", "FRDDR_B OUT 0",
+				"TDMOUT_B IN 2", "FRDDR_C OUT 0",
 				"TDM_B Playback", "TDMOUT_B OUT",
-				"TDMIN_A IN 0", "TDM_A Capture",
-				"TDMIN_A IN 3", "TDM_A Loopback",
-				"TODDR_A IN 0", "TDMIN_A OUT",
-				"TODDR_B IN 0", "TDMIN_A OUT",
-				"TODDR_C IN 0", "TDMIN_A OUT";
+				"TDMIN_B IN 0", "TDM_B Capture",
+				"TODDR_A IN 0", "TDMIN_B OUT",
+				"TODDR_B IN 0", "TDMIN_B OUT",
+				"TODDR_C IN 0", "TDMIN_B OUT",
+				"TDMOUT_A IN 0", "FRDDR_A OUT 1",
+				"TDMOUT_A IN 1", "FRDDR_B OUT 1",
+				"TDMOUT_A IN 2", "FRDDR_C OUT 1",
+				"TDM_A Playback", "TDMOUT_A OUT";
 
 		clocks = <&clkc CLKID_MPLL2>,
 			 <&clkc CLKID_MPLL0>,
@@ -180,8 +180,21 @@
 			sound-dai = <&frddr_c>;
 		};
 
-		/* Analog audio - ES8156 DAC playback + ES7210 ADC capture */
+		/* Analog audio - ES8156 DAC (lane 2) + ES7210 ADC (lane 0) on TDMB AO */
 		dai-link-3 {
+			sound-dai = <&tdmif_b>;
+			dai-format = "i2s";
+			dai-tdm-slot-tx-mask-2 = <1 1>;
+			dai-tdm-slot-rx-mask-0 = <1 1>;
+			mclk-fs = <256>;
+
+			codec {
+				sound-dai = <&es8156>;
+			};
+		};
+
+		/* 8ch hdmi interface on TDMA */
+		dai-link-4 {
 			sound-dai = <&tdmif_a>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-0 = <1 1>;
@@ -191,22 +204,7 @@
 			mclk-fs = <256>;
 
 			codec {
-				sound-dai = <&es8156>;
-			};
-		};
-
-		/* 8ch hdmi interface */
-		dai-link-4 {
-			sound-dai = <&tdmif_b>;
-			dai-format = "i2s";
-			dai-tdm-slot-tx-mask-0 = <1 1>;
-			dai-tdm-slot-tx-mask-1 = <1 1>;
-			dai-tdm-slot-tx-mask-2 = <1 1>;
-			dai-tdm-slot-tx-mask-3 = <1 1>;
-			mclk-fs = <256>;
-
-			codec {
-				sound-dai = <&tohdmitx TOHDMITX_I2S_IN_B>;
+				sound-dai = <&tohdmitx TOHDMITX_I2S_IN_A>;
 			};
 		};
 
@@ -557,6 +555,10 @@
 
 &tdmif_b {
 	status = "okay";
+	pinctrl-0 = <&tdm_ao_b_dout2_pins>, <&tdm_ao_b_din0_pins>,
+		    <&tdm_ao_b_fs_pins>, <&tdm_ao_b_sclk_pins>,
+		    <&mclk0_ao_pins>;
+	pinctrl-names = "default";
 };
 
 &tdmout_a {
@@ -567,7 +569,7 @@
 	status = "okay";
 };
 
-&tdmin_a {
+&tdmin_b {
 	status = "okay";
 };
 
@@ -1011,9 +1013,11 @@
 	cs-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_LOW>;
 
 	led_screen: led-screen@0 {
-		compatible = "quasar,led_screen";
+		compatible = "ya,led_screen";
 		reg = <0>;
-		spi-max-frequency = <10000000>;
+		spi-max-frequency = <4000000>;
+		max-brightness = <200>;
+		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
@@ -1029,6 +1033,8 @@
 		compatible = "everest,es7210";
 		reg = <0x40>;
 		#sound-dai-cells = <0>;
+		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+		clock-names = "mclk";
 		status = "okay";
 	};
 
@@ -1040,13 +1046,20 @@
 
 	tweeter_amp: sy6045s@2a {
 		compatible = "silergy,sy6045s";
+		#sound-dai-cells = <0>;
 		reg = <0x2a>;
+		vddio-supply = <&vddao_3v3>;
+		pvdd-supply = <&main_12v>;
 		status = "okay";
 	};
 
 	woofer_amp: sy6045s@2b {
 		compatible = "silergy,sy6045s";
+		#sound-dai-cells = <0>;
 		reg = <0x2b>;
+		vddio-supply = <&vddao_3v3>;
+		pvdd-supply = <&main_12v>;
+		pbtl-mode;
 		status = "okay";
 	};
 
@@ -1054,6 +1067,8 @@
 		compatible = "everest,es8156";
 		reg = <0x08>;
 		#sound-dai-cells = <0>;
+		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+		clock-names = "mclk";
 		status = "okay";
 	};
 
@@ -1070,24 +1085,9 @@
 	};
 };
 
-/* I2C3 - AD82584F main amp, TAS5707 subwoofer */
+/* I2C3 - not used on this board (no TAS5707/AD82584F) */
 &i2c3 {
-	status = "okay";
-	pinctrl-0 = <&i2c3_sda_a_pins>, <&i2c3_sck_a_pins>;
-	pinctrl-names = "default";
-	clock-frequency = <100000>;
-
-	ad82584f: amplifier@31 {
-		compatible = "adi,ad82584f";
-		reg = <0x31>;
-		status = "okay";
-	};
-
-	tas5707: amplifier@36 {
-		compatible = "ti,tas5707";
-		reg = <0x36>;
-		status = "okay";
-	};
+	status = "disabled";
 };
 
 &gpio_ao {

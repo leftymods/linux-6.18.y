@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
+#include <linux/clk.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -11,6 +12,7 @@
 
 struct es8156_priv {
 	struct regmap *regmap;
+	struct clk *mclk;
 	unsigned int sysclk;
 	unsigned int rate;
 	unsigned int fmt;
@@ -287,6 +289,10 @@ static int es8156_i2c_probe(struct i2c_client *i2c)
 		return -ENOMEM;
 
 	i2c_set_clientdata(i2c, priv);
+
+	priv->mclk = devm_clk_get_enabled(dev, "mclk");
+	if (IS_ERR(priv->mclk) && PTR_ERR(priv->mclk) == -EPROBE_DEFER)
+		return PTR_ERR(priv->mclk);
 
 	priv->regmap = devm_regmap_init_i2c(i2c, &es8156_regmap);
 	if (IS_ERR(priv->regmap))
