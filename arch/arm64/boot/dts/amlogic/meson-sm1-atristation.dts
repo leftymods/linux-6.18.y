@@ -215,6 +215,8 @@
 		vin-supply = <&vcc_5v>;
 		gpio = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	/* SDIO power sequence for WiFi */
