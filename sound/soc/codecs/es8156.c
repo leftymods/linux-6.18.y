@@ -292,11 +292,10 @@ static int es8156_i2c_probe(struct i2c_client *i2c)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-	regmap_read(priv->regmap, ES8156_REG_CHIP_ID1, &val);
-	if (val != (ES8156_CHIP_ID >> 8)) {
-		dev_err(dev, "chip ID1 mismatch: 0x%02x\n", val);
-		return -ENODEV;
-	}
+	if (regmap_read(priv->regmap, ES8156_REG_CHIP_ID1, &val) < 0)
+		dev_warn(dev, "chip not responding, trying reset\n");
+	else if (val != (ES8156_CHIP_ID >> 8))
+		dev_warn(dev, "chip ID1 mismatch: 0x%02x, continuing\n", val);
 
 	return devm_snd_soc_register_component(dev, &es8156_component_driver,
 					       &es8156_dai, 1);

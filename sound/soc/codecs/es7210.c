@@ -234,11 +234,10 @@ static int es7210_i2c_probe(struct i2c_client *i2c)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-	regmap_read(priv->regmap, ES7210_REG_CHIP_ID, &val);
-	if (val != ES7210_CHIP_ID) {
-		dev_err(dev, "chip ID mismatch: 0x%02x\n", val);
-		return -ENODEV;
-	}
+	if (regmap_read(priv->regmap, ES7210_REG_CHIP_ID, &val) < 0)
+		dev_warn(dev, "chip not responding, trying reset\n");
+	else if (val != ES7210_CHIP_ID)
+		dev_warn(dev, "chip ID mismatch: 0x%02x, continuing\n", val);
 
 	return devm_snd_soc_register_component(dev, &es7210_component_driver,
 					       &es7210_dai, 1);
