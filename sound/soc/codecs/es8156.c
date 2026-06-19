@@ -96,12 +96,10 @@ static int es8156_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 	u8 iface = 0;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
-		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
-		iface |= 0x20;
-		break;
 	case SND_SOC_DAIFMT_CBC_CFC:
+		break;
+	case SND_SOC_DAIFMT_CBP_CFC:
+		iface |= 0x20;
 		break;
 	default:
 		return -EINVAL;
