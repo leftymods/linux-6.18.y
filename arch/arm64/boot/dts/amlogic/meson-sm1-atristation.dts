@@ -250,145 +250,145 @@
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring0";
-		leds = <&led_3c_red0>, <&led_3c_green0>, <&led_3c_blue0>;
+		leds = <&led_3c_blue0>, <&led_3c_green0>, <&led_3c_red0>;
 	};
 	ring1: rgb1 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring1";
-		leds = <&led_3c_red1>, <&led_3c_green1>, <&led_3c_blue1>;
+		leds = <&led_3c_blue1>, <&led_3c_green1>, <&led_3c_red1>;
 	};
 	ring2: rgb2 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring2";
-		leds = <&led_3c_red2>, <&led_3c_green2>, <&led_3c_blue2>;
+		leds = <&led_3c_blue2>, <&led_3c_green2>, <&led_3c_red2>;
 	};
 	ring3: rgb3 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring3";
-		leds = <&led_3c_red3>, <&led_3c_green3>, <&led_3c_blue3>;
+		leds = <&led_3c_blue3>, <&led_3c_green3>, <&led_3c_red3>;
 	};
 	ring4: rgb4 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring4";
-		leds = <&led_3c_red4>, <&led_3c_green4>, <&led_3c_blue4>;
+		leds = <&led_3c_blue4>, <&led_3c_green4>, <&led_3c_red4>;
 	};
 	ring5: rgb5 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring5";
-		leds = <&led_3c_red5>, <&led_3c_green5>, <&led_3c_blue5>;
+		leds = <&led_3c_blue5>, <&led_3c_green5>, <&led_3c_red5>;
 	};
 	ring6: rgb6 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring6";
-		leds = <&led_3c_red6>, <&led_3c_green6>, <&led_3c_blue6>;
+		leds = <&led_3c_blue6>, <&led_3c_green6>, <&led_3c_red6>;
 	};
 	ring7: rgb7 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring7";
-		leds = <&led_3c_red7>, <&led_3c_green7>, <&led_3c_blue7>;
+		leds = <&led_3c_blue7>, <&led_3c_green7>, <&led_3c_red7>;
 	};
 	ring8: rgb8 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring8";
-		leds = <&led_3c_red8>, <&led_3c_green8>, <&led_3c_blue8>;
+		leds = <&led_3c_blue8>, <&led_3c_green8>, <&led_3c_red8>;
 	};
 	ring9: rgb9 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring9";
-		leds = <&led_3c_red9>, <&led_3c_green9>, <&led_3c_blue9>;
+		leds = <&led_3c_blue9>, <&led_3c_green9>, <&led_3c_red9>;
 	};
 	ring10: rgb10 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring10";
-		leds = <&led_3c_red10>, <&led_3c_green10>, <&led_3c_blue10>;
+		leds = <&led_3c_blue10>, <&led_3c_green10>, <&led_3c_red10>;
 	};
 	ring11: rgb11 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring11";
-		leds = <&led_3c_red11>, <&led_3c_green11>, <&led_3c_blue11>;
+		leds = <&led_3c_blue11>, <&led_3c_green11>, <&led_3c_red11>;
 	};
 	ring12: rgb12 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring12";
-		leds = <&led_3f_red12>, <&led_3f_green12>, <&led_3f_blue12>;
+		leds = <&led_3f_blue12>, <&led_3f_green12>, <&led_3f_red12>;
 	};
 	ring13: rgb13 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring13";
-		leds = <&led_3f_red13>, <&led_3f_green13>, <&led_3f_blue13>;
+		leds = <&led_3f_blue13>, <&led_3f_green13>, <&led_3f_red13>;
 	};
 	ring14: rgb14 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring14";
-		leds = <&led_3f_red14>, <&led_3f_green14>, <&led_3f_blue14>;
+		leds = <&led_3f_blue14>, <&led_3f_green14>, <&led_3f_red14>;
 	};
 	ring15: rgb15 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring15";
-		leds = <&led_3f_red15>, <&led_3f_green15>, <&led_3f_blue15>;
+		leds = <&led_3f_blue15>, <&led_3f_green15>, <&led_3f_red15>;
 	};
 	ring16: rgb16 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring16";
-		leds = <&led_3f_red16>, <&led_3f_green16>, <&led_3f_blue16>;
+		leds = <&led_3f_blue16>, <&led_3f_green16>, <&led_3f_red16>;
 	};
 	ring17: rgb17 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring17";
-		leds = <&led_3f_red17>, <&led_3f_green17>, <&led_3f_blue17>;
+		leds = <&led_3f_blue17>, <&led_3f_green17>, <&led_3f_red17>;
 	};
 	ring18: rgb18 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring18";
-		leds = <&led_3f_red18>, <&led_3f_green18>, <&led_3f_blue18>;
+		leds = <&led_3f_blue18>, <&led_3f_green18>, <&led_3f_red18>;
 	};
 	ring19: rgb19 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring19";
-		leds = <&led_3f_red19>, <&led_3f_green19>, <&led_3f_blue19>;
+		leds = <&led_3f_blue19>, <&led_3f_green19>, <&led_3f_red19>;
 	};
 	ring20: rgb20 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring20";
-		leds = <&led_3f_red20>, <&led_3f_green20>, <&led_3f_blue20>;
+		leds = <&led_3f_blue20>, <&led_3f_green20>, <&led_3f_red20>;
 	};
 	ring21: rgb21 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring21";
-		leds = <&led_3f_red21>, <&led_3f_green21>, <&led_3f_blue21>;
+		leds = <&led_3f_blue21>, <&led_3f_green21>, <&led_3f_red21>;
 	};
 	ring22: rgb22 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring22";
-		leds = <&led_3f_red22>, <&led_3f_green22>, <&led_3f_blue22>;
+		leds = <&led_3f_blue22>, <&led_3f_green22>, <&led_3f_red22>;
 	};
 	ring23: rgb23 {
 		compatible = "leds-group-multicolor";
 		color = <LED_COLOR_ID_RGB>;
 		label = "ring23";
-		leds = <&led_3f_red23>, <&led_3f_green23>, <&led_3f_blue23>;
+		leds = <&led_3f_blue23>, <&led_3f_green23>, <&led_3f_red23>;
 	};
 };
 
