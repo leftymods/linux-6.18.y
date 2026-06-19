@@ -2,6 +2,8 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
+#include <linux/clk.h>
+#include <linux/gpio/consumer.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -11,6 +13,8 @@
 
 struct es7210_priv {
 	struct regmap *regmap;
+	struct clk *mclk;
+	struct gpio_desc *reset_gpio;
 	unsigned int sysclk;
 	unsigned int rate;
 	unsigned int fmt;
@@ -230,6 +234,20 @@ static int es7210_i2c_probe(struct i2c_client *i2c)
 
 	i2c_set_clientdata(i2c, priv);
 
+	priv->mclk = devm_clk_get_enabled(dev, "mclk");
+	if (IS_ERR(priv->mclk) && PTR_ERR(priv->mclk) == -EPROBE_DEFER)
+		return PTR_ERR(priv->mclk);
+
+	priv->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(priv->reset_gpio))
+		return PTR_ERR(priv->reset_gpio);
+
+	if (priv->reset_gpio) {
+		gpiod_set_value_cansleep(priv->reset_gpio, 1);
+		usleep_range(2000, 5000);
+		gpiod_set_value_cansleep(priv->reset_gpio, 0);
+	}
+
 	priv->regmap = devm_regmap_init_i2c(i2c, &es7210_regmap);
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
@@ -251,6 +269,7 @@ MODULE_DEVICE_TABLE(i2c, es7210_i2c_id);
 
 static const struct of_device_id es7210_of_match[] = {
 	{ .compatible = "everest,es7210" },
+	{ .compatible = "everest,es7210_2ch" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, es7210_of_match);

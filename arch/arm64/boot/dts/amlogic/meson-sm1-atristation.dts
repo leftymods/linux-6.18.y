@@ -141,20 +141,15 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "ATRISTATION";
-		audio-aux-devs = <&tdmout_b>, <&tdmin_b>,
-				 <&tdmout_a>;
+		audio-aux-devs = <&tdmout_b>, <&tdmout_a>;
 
-		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 0",
-				"TDMOUT_B IN 1", "FRDDR_B OUT 0",
-				"TDMOUT_B IN 2", "FRDDR_C OUT 0",
+		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
+				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
 				"TDM_B Playback", "TDMOUT_B OUT",
-				"TDMIN_B IN 0", "TDM_B Capture",
-				"TODDR_A IN 0", "TDMIN_B OUT",
-				"TODDR_B IN 0", "TDMIN_B OUT",
-				"TODDR_C IN 0", "TDMIN_B OUT",
-				"TDMOUT_A IN 0", "FRDDR_A OUT 1",
-				"TDMOUT_A IN 1", "FRDDR_B OUT 1",
-				"TDMOUT_A IN 2", "FRDDR_C OUT 1",
+				"TDMOUT_A IN 0", "FRDDR_A OUT 0",
+				"TDMOUT_A IN 1", "FRDDR_B OUT 0",
+				"TDMOUT_A IN 2", "FRDDR_C OUT 0",
 				"TDM_A Playback", "TDMOUT_A OUT";
 
 		clocks = <&clkc CLKID_MPLL2>,
@@ -180,12 +175,11 @@
 			sound-dai = <&frddr_c>;
 		};
 
-		/* Analog audio - ES8156 DAC (lane 2) + ES7210 ADC (lane 0) on TDMB AO */
+		/* Analog audio - ES8156 DAC on TDMB AO */
 		dai-link-3 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-2 = <1 1>;
-			dai-tdm-slot-rx-mask-0 = <1 1>;
 			mclk-fs = <256>;
 
 			codec {
@@ -1025,18 +1019,19 @@
 /* I2C2 - ES7210 ADC, RTC, SY6045S amps, ES8156 DAC */
 &i2c2 {
 	status = "okay";
-	pinctrl-0 = <&i2c2_sda_z_pins>, <&i2c2_sck_z_pins>;
+	pinctrl-0 = <&i2c2_sda_x_pins>, <&i2c2_sck_x_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
 
-	es7210: audio-adc@40 {
-		compatible = "everest,es7210";
-		reg = <0x40>;
-		#sound-dai-cells = <0>;
-		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
-		clock-names = "mclk";
-		status = "okay";
-	};
+		es7210: audio-adc@40 {
+			compatible = "everest,es7210_2ch";
+			reg = <0x40>;
+			#sound-dai-cells = <0>;
+			clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+			clock-names = "mclk";
+			reset-gpios = <&gpio GPIOA_6 GPIO_ACTIVE_LOW>;
+			status = "okay";
+		};
 
 	rtc@51 {
 		compatible = "nxp,pcf8563";
@@ -1069,6 +1064,7 @@
 		#sound-dai-cells = <0>;
 		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
 		clock-names = "mclk";
+		reset-gpios = <&gpio GPIOA_6 GPIO_ACTIVE_LOW>;
 		status = "okay";
 	};
 
@@ -1097,6 +1093,7 @@
 		output-high;
 		line-name = "amplifier-power";
 	};
+
 };
 
 /* WiFi RTL8822CS SDIO */
