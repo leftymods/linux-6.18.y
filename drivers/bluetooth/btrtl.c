@@ -1359,6 +1359,13 @@ void btrtl_set_quirks(struct hci_dev *hdev, struct btrtl_device_info *btrtl_dev)
 		 */
 		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_LOCAL_EXT_FEATURES_PAGE_2);
 		break;
+	case RTL_ROM_LMP_8822B:
+		/* RTL8822CS crashes on HCI_Reset after firmware download.
+		 * Skip the standard HCI init reset - the firmware is already
+		 * loaded and running by the time setup() returns.
+		 */
+		hci_set_quirk(hdev, HCI_QUIRK_NON_PERSISTENT_SETUP);
+		break;
 	default:
 		break;
 	}
