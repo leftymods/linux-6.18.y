@@ -26,12 +26,12 @@ static const struct reg_default sy6045s_reg_defaults[] = {
 
 static bool sy6045s_writeable_reg(struct device *dev, unsigned int reg)
 {
-	return true;
+	return reg <= 0x1f;
 }
 
 static bool sy6045s_readable_reg(struct device *dev, unsigned int reg)
 {
-	return true;
+	return reg <= 0x1f;
 }
 
 static bool sy6045s_volatile_reg(struct device *dev, unsigned int reg)
@@ -62,6 +62,7 @@ static const struct snd_kcontrol_new sy6045s_snd_controls[] = {
 
 static const struct snd_soc_dapm_widget sy6045s_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("SPK_OUT"),
+	SND_SOC_DAPM_AIF_OUT("Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct snd_soc_dapm_route sy6045s_dapm_routes[] = {
@@ -99,6 +100,17 @@ static const struct snd_soc_component_driver sy6045s_component_driver = {
 	.endianness		= 1,
 };
 
+static struct snd_soc_dai_driver sy6045s_dai = {
+	.name = "sy6045s-hifi",
+	.playback = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
+	},
+};
+
 static int sy6045s_i2c_probe(struct i2c_client *i2c)
 {
 	struct device *dev = &i2c->dev;
@@ -124,7 +136,7 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 		return dev_err_probe(dev, ret, "failed to get supplies\n");
 
 	return devm_snd_soc_register_component(dev, &sy6045s_component_driver,
-					       NULL, 0);
+					       &sy6045s_dai, 1);
 }
 
 static const struct i2c_device_id sy6045s_i2c_id[] = {
