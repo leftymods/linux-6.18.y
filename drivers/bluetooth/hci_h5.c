@@ -1012,10 +1012,10 @@ static void h5_btrtl_open(struct h5 *h5)
 	gpiod_set_value_cansleep(h5->device_wake_gpio, 0);
 	msleep(100);
 
-	/* The controller needs up to 1500ms to wakeup */
+	/* The controller needs up to 500ms to wakeup */
 	gpiod_set_value_cansleep(h5->enable_gpio, 1);
 	gpiod_set_value_cansleep(h5->device_wake_gpio, 1);
-	msleep(1500);
+	msleep(500);
 }
 
 static void h5_btrtl_close(struct h5 *h5)
