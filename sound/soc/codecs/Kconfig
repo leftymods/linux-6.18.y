@@ -125,6 +125,8 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_ES8389
 	imply SND_SOC_ES7134
 	imply SND_SOC_ES7241
+	imply SND_SOC_ES8156
+	imply SND_SOC_ES7210
 	imply SND_SOC_FRAMER
 	imply SND_SOC_FS210X
 	imply SND_SOC_GTM601
@@ -1201,8 +1203,16 @@ config SND_SOC_ES8311
 	tristate "Everest Semi ES8311 CODEC"
 	depends on I2C
 
+config SND_SOC_ES8156
+	tristate "Everest Semi ES8156 8-channel DAC"
+	depends on I2C
+
 config SND_SOC_ES8316
 	tristate "Everest Semi ES8316 CODEC"
+	depends on I2C
+
+config SND_SOC_ES7210
+	tristate "Everest Semi ES7210 4-channel ADC"
 	depends on I2C
 
 config SND_SOC_ES8323

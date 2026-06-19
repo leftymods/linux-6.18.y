@@ -140,11 +140,22 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "ATRISTATION";
-		audio-aux-devs = <&tdmout_b>;
-		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+		audio-aux-devs = <&tdmout_a>, <&tdmout_b>,
+				 <&tdmin_a>;
+
+		audio-routing = "TDMOUT_A IN 0", "FRDDR_A OUT 0",
+				"TDMOUT_A IN 1", "FRDDR_B OUT 0",
+				"TDMOUT_A IN 2", "FRDDR_C OUT 0",
+				"TDM_A Playback", "TDMOUT_A OUT",
+				"TDMOUT_B IN 0", "FRDDR_A OUT 1",
 				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
 				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
-				"TDM_B Playback", "TDMOUT_B OUT";
+				"TDM_B Playback", "TDMOUT_B OUT",
+				"TDMIN_A IN 0", "TDM_A Capture",
+				"TDMIN_A IN 3", "TDM_A Loopback",
+				"TODDR_A IN 0", "TDMIN_A OUT",
+				"TODDR_B IN 0", "TDMIN_A OUT",
+				"TODDR_C IN 0", "TDMIN_A OUT";
 
 		clocks = <&clkc CLKID_MPLL2>,
 			 <&clkc CLKID_MPLL0>,
@@ -169,8 +180,23 @@
 			sound-dai = <&frddr_c>;
 		};
 
-		/* 8ch hdmi interface */
+		/* Analog audio - ES8156 DAC playback + ES7210 ADC capture */
 		dai-link-3 {
+			sound-dai = <&tdmif_a>;
+			dai-format = "i2s";
+			dai-tdm-slot-tx-mask-0 = <1 1>;
+			dai-tdm-slot-tx-mask-1 = <1 1>;
+			dai-tdm-slot-tx-mask-2 = <1 1>;
+			dai-tdm-slot-tx-mask-3 = <1 1>;
+			mclk-fs = <256>;
+
+			codec {
+				sound-dai = <&es8156>;
+			};
+		};
+
+		/* 8ch hdmi interface */
+		dai-link-4 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
 			dai-tdm-slot-tx-mask-0 = <1 1>;
@@ -185,7 +211,7 @@
 		};
 
 		/* hdmi glue */
-		dai-link-4 {
+		dai-link-5 {
 			sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
 
 			codec {
@@ -522,11 +548,38 @@
 	vqmmc-supply = <&flash_1v8>;
 };
 
+&tdmif_a {
+	status = "okay";
+	pinctrl-0 = <&tdm_a_dout0_pins>, <&tdm_a_din0_pins>,
+		    <&tdm_a_fs_pins>, <&tdm_a_sclk_pins>;
+	pinctrl-names = "default";
+};
+
 &tdmif_b {
 	status = "okay";
 };
 
+&tdmout_a {
+	status = "okay";
+};
+
 &tdmout_b {
+	status = "okay";
+};
+
+&tdmin_a {
+	status = "okay";
+};
+
+&toddr_a {
+	status = "okay";
+};
+
+&toddr_b {
+	status = "okay";
+};
+
+&toddr_c {
 	status = "okay";
 };
 
@@ -975,6 +1028,7 @@
 	es7210: audio-adc@40 {
 		compatible = "everest,es7210";
 		reg = <0x40>;
+		#sound-dai-cells = <0>;
 		status = "okay";
 	};
 
@@ -999,6 +1053,7 @@
 	es8156: dac@8 {
 		compatible = "everest,es8156";
 		reg = <0x08>;
+		#sound-dai-cells = <0>;
 		status = "okay";
 	};
 
