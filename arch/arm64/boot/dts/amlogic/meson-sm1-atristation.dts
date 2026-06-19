@@ -419,111 +419,147 @@
 		#size-cells = <0>;
 		status = "okay";
 		led@1 {
+			label = "ring_0";
 			reg = <1>;
 		};
 		led@2 {
+			label = "ring_1";
 			reg = <2>;
 		};
 		led@3 {
+			label = "ring_2";
 			reg = <3>;
 		};
 		led@4 {
+			label = "ring_3";
 			reg = <4>;
 		};
 		led@5 {
+			label = "ring_4";
 			reg = <5>;
 		};
 		led@6 {
+			label = "ring_5";
 			reg = <6>;
 		};
 		led@7 {
+			label = "ring_6";
 			reg = <7>;
 		};
 		led@8 {
+			label = "ring_7";
 			reg = <8>;
 		};
 		led@9 {
+			label = "ring_8";
 			reg = <9>;
 		};
 		led@10 {
+			label = "ring_9";
 			reg = <10>;
 		};
 		led@11 {
+			label = "ring_10";
 			reg = <11>;
 		};
 		led@12 {
+			label = "ring_11";
 			reg = <12>;
 		};
 		led@13 {
+			label = "ring_12";
 			reg = <13>;
 		};
 		led@14 {
+			label = "ring_13";
 			reg = <14>;
 		};
 		led@15 {
+			label = "ring_14";
 			reg = <15>;
 		};
 		led@16 {
+			label = "ring_15";
 			reg = <16>;
 		};
 		led@17 {
+			label = "ring_16";
 			reg = <17>;
 		};
 		led@18 {
+			label = "ring_17";
 			reg = <18>;
 		};
 		led@19 {
+			label = "ring_18";
 			reg = <19>;
 		};
 		led@20 {
+			label = "ring_19";
 			reg = <20>;
 		};
 		led@21 {
+			label = "ring_20";
 			reg = <21>;
 		};
 		led@22 {
+			label = "ring_21";
 			reg = <22>;
 		};
 		led@23 {
+			label = "ring_22";
 			reg = <23>;
 		};
 		led@24 {
+			label = "ring_23";
 			reg = <24>;
 		};
 		led@25 {
+			label = "ring_24";
 			reg = <25>;
 		};
 		led@26 {
+			label = "ring_25";
 			reg = <26>;
 		};
 		led@27 {
+			label = "ring_26";
 			reg = <27>;
 		};
 		led@28 {
+			label = "ring_27";
 			reg = <28>;
 		};
 		led@29 {
+			label = "ring_28";
 			reg = <29>;
 		};
 		led@30 {
+			label = "ring_29";
 			reg = <30>;
 		};
 		led@31 {
+			label = "ring_30";
 			reg = <31>;
 		};
 		led@32 {
+			label = "ring_31";
 			reg = <32>;
 		};
 		led@33 {
+			label = "ring_32";
 			reg = <33>;
 		};
 		led@34 {
+			label = "ring_33";
 			reg = <34>;
 		};
 		led@35 {
+			label = "ring_34";
 			reg = <35>;
 		};
 		led@36 {
+			label = "ring_35";
 			reg = <36>;
 		};
 	};
@@ -535,111 +571,147 @@
 		#size-cells = <0>;
 		status = "okay";
 		led@1 {
+			label = "ring_36";
 			reg = <1>;
 		};
 		led@2 {
+			label = "ring_37";
 			reg = <2>;
 		};
 		led@3 {
+			label = "ring_38";
 			reg = <3>;
 		};
 		led@4 {
+			label = "ring_39";
 			reg = <4>;
 		};
 		led@5 {
+			label = "ring_40";
 			reg = <5>;
 		};
 		led@6 {
+			label = "ring_41";
 			reg = <6>;
 		};
 		led@7 {
+			label = "ring_42";
 			reg = <7>;
 		};
 		led@8 {
+			label = "ring_43";
 			reg = <8>;
 		};
 		led@9 {
+			label = "ring_44";
 			reg = <9>;
 		};
 		led@10 {
+			label = "ring_45";
 			reg = <10>;
 		};
 		led@11 {
+			label = "ring_46";
 			reg = <11>;
 		};
 		led@12 {
+			label = "ring_47";
 			reg = <12>;
 		};
 		led@13 {
+			label = "ring_48";
 			reg = <13>;
 		};
 		led@14 {
+			label = "ring_49";
 			reg = <14>;
 		};
 		led@15 {
+			label = "ring_50";
 			reg = <15>;
 		};
 		led@16 {
+			label = "ring_51";
 			reg = <16>;
 		};
 		led@17 {
+			label = "ring_52";
 			reg = <17>;
 		};
 		led@18 {
+			label = "ring_53";
 			reg = <18>;
 		};
 		led@19 {
+			label = "ring_54";
 			reg = <19>;
 		};
 		led@20 {
+			label = "ring_55";
 			reg = <20>;
 		};
 		led@21 {
+			label = "ring_56";
 			reg = <21>;
 		};
 		led@22 {
+			label = "ring_57";
 			reg = <22>;
 		};
 		led@23 {
+			label = "ring_58";
 			reg = <23>;
 		};
 		led@24 {
+			label = "ring_59";
 			reg = <24>;
 		};
 		led@25 {
+			label = "ring_60";
 			reg = <25>;
 		};
 		led@26 {
+			label = "ring_61";
 			reg = <26>;
 		};
 		led@27 {
+			label = "ring_62";
 			reg = <27>;
 		};
 		led@28 {
+			label = "ring_63";
 			reg = <28>;
 		};
 		led@29 {
+			label = "ring_64";
 			reg = <29>;
 		};
 		led@30 {
+			label = "ring_65";
 			reg = <30>;
 		};
 		led@31 {
+			label = "ring_66";
 			reg = <31>;
 		};
 		led@32 {
+			label = "ring_67";
 			reg = <32>;
 		};
 		led@33 {
+			label = "ring_68";
 			reg = <33>;
 		};
 		led@34 {
+			label = "ring_69";
 			reg = <34>;
 		};
 		led@35 {
+			label = "ring_70";
 			reg = <35>;
 		};
 		led@36 {
+			label = "ring_71";
 			reg = <36>;
 		};
 	};
