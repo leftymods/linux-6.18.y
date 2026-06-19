@@ -5,6 +5,7 @@
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <sound/soc.h>
+#include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
 #define ES8156_RESET		0x00
@@ -67,17 +68,18 @@ static int es8156_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_component *component = dai->component;
 	struct es8156_priv *es8156 = snd_soc_component_get_drvdata(component);
+	unsigned int width = params_width(params);
 	u8 fmt = 0;
 
-	switch (params_width(params)) {
+	switch (width) {
 	case 16:
-		fmt |= 0x03;
+		fmt = 0x03;
 		break;
 	case 24:
-		fmt |= 0x00;
+		fmt = 0x00;
 		break;
 	case 32:
-		fmt |= 0x04;
+		fmt = 0x04;
 		break;
 	default:
 		return -EINVAL;
@@ -98,6 +100,8 @@ static int es8156_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 		break;
 	case SND_SOC_DAIFMT_CBS_CFS:
 		iface |= 0x20;
+		break;
+	case SND_SOC_DAIFMT_CBC_CFC:
 		break;
 	default:
 		return -EINVAL;
@@ -143,7 +147,7 @@ static const struct snd_soc_component_driver soc_component_dev_es8156 = {
 	.endianness		= 1,
 };
 
-static int es8156_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+static int es8156_i2c_probe(struct i2c_client *i2c)
 {
 	struct es8156_priv *es8156;
 	struct device *dev = &i2c->dev;
@@ -190,14 +194,12 @@ static int es8156_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *
 	return ret;
 }
 
-static int es8156_i2c_remove(struct i2c_client *i2c)
+static void es8156_i2c_remove(struct i2c_client *i2c)
 {
 	struct es8156_priv *es8156 = i2c_get_clientdata(i2c);
 
 	if (es8156->mclk)
 		clk_disable_unprepare(es8156->mclk);
-
-	return 0;
 }
 
 static const struct i2c_device_id es8156_i2c_id[] = {
