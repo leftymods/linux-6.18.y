@@ -1136,7 +1136,8 @@
 };
 
 /* Volume potentiometer on SAR ADC channel 0 */
-adc-keys {
+/ {
+	adc-keys {
 	compatible = "adc-keys";
 	io-channels = <&saradc 0>;
 	io-channel-names = "volume";
@@ -1153,5 +1154,6 @@ adc-keys {
 		linux,code = <116>; /* KEY_VOLUMEDOWN */
 		adc-threshold = <900 1023>;
 		debounce = <50>;
+	};
 	};
 };
