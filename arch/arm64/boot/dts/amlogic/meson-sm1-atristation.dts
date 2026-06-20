@@ -139,78 +139,84 @@
 	};
 
 	sound {
-		compatible = "amlogic,axg-sound-card";
-		model = "ATRISTATION";
-		audio-aux-devs = <&tdmout_b>, <&tdmout_a>;
+	compatible = "amlogic,axg-sound-card";
+	model = "ATRISTATION";
 
-		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
-				"TDMOUT_B IN 1", "FRDDR_B OUT 1",
-				"TDMOUT_B IN 2", "FRDDR_C OUT 1",
-				"TDM_B Playback", "TDMOUT_B OUT",
-				"TDMOUT_A IN 0", "FRDDR_A OUT 0",
-				"TDMOUT_A IN 1", "FRDDR_B OUT 0",
-				"TDMOUT_A IN 2", "FRDDR_C OUT 0",
-				"TDM_A Playback", "TDMOUT_A OUT";
+	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
+			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
+			"TDM_B Playback", "TDMOUT_B OUT";
 
-		clocks = <&clkc CLKID_MPLL2>,
-			 <&clkc CLKID_MPLL0>,
-			 <&clkc CLKID_MPLL1>;
+	clocks = <&clkc CLKID_MPLL2>,
+		 <&clkc CLKID_MPLL0>,
+		 <&clkc CLKID_MPLL1>;
 
-		assigned-clocks = <&clkc CLKID_MPLL2>,
-				  <&clkc CLKID_MPLL0>,
-				  <&clkc CLKID_MPLL1>;
-		assigned-clock-rates = <294912000>,
-				       <270950400>,
-				       <393216000>;
+	assigned-clocks = <&clkc CLKID_MPLL2>,
+			  <&clkc CLKID_MPLL0>,
+			  <&clkc CLKID_MPLL1>;
+	assigned-clock-rates = <294912000>,
+			       <270950400>,
+			       <393216000>;
 
-		dai-link-0 {
-			sound-dai = <&frddr_a>;
-		};
+	dai-link-0 {
+	};
 
-		dai-link-1 {
-			sound-dai = <&frddr_b>;
-		};
+	/* I2S playback to TAS5825M amps */
+	dai-link-1 {
+		sound-dai = <&frddr_a>;
+	};
 
-		dai-link-2 {
-			sound-dai = <&frddr_c>;
-		};
+	dai-link-2 {
+		sound-dai = <&frddr_b>;
+	};
 
-		/* Analog audio - ES8156 DAC on TDMB AO */
-		dai-link-3 {
-			sound-dai = <&tdmif_b>;
-			dai-format = "i2s";
-			dai-tdm-slot-tx-mask-2 = <1 1>;
-			mclk-fs = <256>;
+	dai-link-3 {
+		sound-dai = <&frddr_c>;
+	};
 
-			codec {
-				sound-dai = <&es8156>;
-			};
-		};
+	dai-link-4 {
+		sound-dai = <&tdmif_b>;
+		dai-format = "i2s";
+		mclk-fs = <256>;
 
-		/* 8ch hdmi interface on TDMA */
-		dai-link-4 {
-			sound-dai = <&tdmif_a>;
-			dai-format = "i2s";
-			dai-tdm-slot-tx-mask-0 = <1 1>;
-			dai-tdm-slot-tx-mask-1 = <1 1>;
-			dai-tdm-slot-tx-mask-2 = <1 1>;
-			dai-tdm-slot-tx-mask-3 = <1 1>;
-			mclk-fs = <256>;
-
-			codec {
-				sound-dai = <&tohdmitx TOHDMITX_I2S_IN_A>;
-			};
-		};
-
-		/* hdmi glue */
-		dai-link-5 {
-			sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
-
-			codec {
-				sound-dai = <&hdmi_tx>;
-			};
+		codec {
+			sound-dai = <&tweeter_amp>, <&woofer_amp>;
 		};
 	};
+
+	/* PDM capture for microphones */
+	dai-link-5 {
+		sound-dai = <&tdmin_b>;
+
+		codec {
+			/* PDM микрофоны - без кодека, прямо в SoC */
+		};
+	};
+
+	/* 8ch hdmi interface on TDMA */
+	dai-link-6 {
+		sound-dai = <&tdmif_a>;
+		dai-format = "i2s";
+		dai-tdm-slot-tx-mask-0 = <1 1>;
+		dai-tdm-slot-tx-mask-1 = <1 1>;
+		dai-tdm-slot-tx-mask-2 = <1 1>;
+		dai-tdm-slot-tx-mask-3 = <1 1>;
+		mclk-fs = <256>;
+
+		codec {
+			sound-dai = <&tohdmitx TOHDMITX_I2S_IN_A>;
+		};
+	};
+
+	/* hdmi glue */
+	dai-link-7 {
+		sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
+
+		codec {
+			sound-dai = <&hdmi_tx>;
+		};
+	};
+};
 
 	/* HDMI connector */
 	hdmi-connector {
@@ -1016,67 +1022,29 @@
 	};
 };
 
-/* I2C2 - ES7210 ADC, RTC, SY6045S amps, ES8156 DAC */
+/* I2C2 - TAS5825M amps (tweeters 0x4c, woofer 0x4d) */
 &i2c2 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_sda_x_pins>, <&i2c2_sck_x_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
 
-		es7210: audio-adc@40 {
-			compatible = "everest,es7210_2ch";
-			reg = <0x40>;
-			#sound-dai-cells = <0>;
-			clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
-			clock-names = "mclk";
-			reset-gpios = <&gpio GPIOA_6 GPIO_ACTIVE_LOW>;
-			status = "okay";
-		};
-
-	rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
-		status = "okay";
-	};
-
-	tweeter_amp: sy6045s@2a {
-		compatible = "silergy,sy6045s";
+	tweeter_amp: tas5825m@4c {
+		compatible = "ti,tas5825";
+		reg = <0x4c>;
 		#sound-dai-cells = <0>;
-		reg = <0x2a>;
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		status = "okay";
 	};
 
-	woofer_amp: sy6045s@2b {
-		compatible = "silergy,sy6045s";
+	woofer_amp: tas5825m@4d {
+		compatible = "ti,tas5825";
+		reg = <0x4d>;
 		#sound-dai-cells = <0>;
-		reg = <0x2b>;
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		pbtl-mode;
-		status = "okay";
-	};
-
-	es8156: dac@8 {
-		compatible = "everest,es8156";
-		reg = <0x08>;
-		#sound-dai-cells = <0>;
-		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
-		clock-names = "mclk";
-		reset-gpios = <&gpio GPIOA_6 GPIO_ACTIVE_LOW>;
-		status = "okay";
-	};
-
-	eeprom@50 {
-		compatible = "atmel,24c01";
-		reg = <0x50>;
-		status = "okay";
-	};
-
-	eeprom@55 {
-		compatible = "atmel,24c01";
-		reg = <0x55>;
 		status = "okay";
 	};
 };

@@ -159,16 +159,6 @@ static int es8156_i2c_probe(struct i2c_client *i2c)
 	if (IS_ERR(es8156->regmap))
 		return PTR_ERR(es8156->regmap);
 
-	es8156->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(es8156->reset_gpio))
-		return PTR_ERR(es8156->reset_gpio);
-
-	if (es8156->reset_gpio) {
-		gpiod_set_value_cansleep(es8156->reset_gpio, 1);
-		usleep_range(2000, 5000);
-		gpiod_set_value_cansleep(es8156->reset_gpio, 0);
-	}
-
 	es8156->mclk = devm_clk_get(dev, "mclk");
 	if (IS_ERR(es8156->mclk)) {
 		if (PTR_ERR(es8156->mclk) != -ENOENT)
