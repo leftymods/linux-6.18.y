@@ -141,11 +141,9 @@
 	sound {
 	compatible = "amlogic,axg-sound-card";
 	model = "ATRISTATION";
+	audio-aux-devs = <&tdmin_b>;
 
-	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
-			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
-			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
-			"TDM_B Playback", "TDMOUT_B OUT";
+	audio-routing = "TAS5825M Tweeters Playback", "TAS5825M Woofer Playback";
 
 	clocks = <&clkc CLKID_MPLL2>,
 		 <&clkc CLKID_MPLL0>,
@@ -159,42 +157,48 @@
 			       <393216000>;
 
 	dai-link-0 {
-	};
-
-	/* I2S playback to TAS5825M amps */
-	dai-link-1 {
 		sound-dai = <&frddr_a>;
 	};
 
-	dai-link-2 {
+	dai-link-1 {
 		sound-dai = <&frddr_b>;
 	};
 
-	dai-link-3 {
+	dai-link-2 {
 		sound-dai = <&frddr_c>;
 	};
 
-	dai-link-4 {
+	/* I2S playback to TAS5825M amps */
+	dai-link-3 {
 		sound-dai = <&tdmif_b>;
 		dai-format = "i2s";
+		dai-tdm-slot-tx-mask-2 = <1 1>;
 		mclk-fs = <256>;
 
-		codec {
-			sound-dai = <&tweeter_amp>, <&woofer_amp>;
+		codec-0 {
+			sound-dai = <&tweeter_amp>;
+		};
+
+		codec-1 {
+			sound-dai = <&woofer_amp>;
 		};
 	};
 
 	/* PDM capture for microphones */
-	dai-link-5 {
-		sound-dai = <&tdmin_b>;
+	dai-link-4 {
+		sound-dai = <&toddr_a>;
+	};
 
-		codec {
-			/* PDM микрофоны - без кодека, прямо в SoC */
-		};
+	dai-link-5 {
+		sound-dai = <&toddr_b>;
+	};
+
+	dai-link-6 {
+		sound-dai = <&toddr_c>;
 	};
 
 	/* 8ch hdmi interface on TDMA */
-	dai-link-6 {
+	dai-link-7 {
 		sound-dai = <&tdmif_a>;
 		dai-format = "i2s";
 		dai-tdm-slot-tx-mask-0 = <1 1>;
@@ -209,7 +213,7 @@
 	};
 
 	/* hdmi glue */
-	dai-link-7 {
+	dai-link-8 {
 		sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
 
 		codec {
@@ -1033,6 +1037,8 @@
 		compatible = "ti,tas5825";
 		reg = <0x4c>;
 		#sound-dai-cells = <0>;
+		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+		clock-names = "mclk";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		status = "okay";
@@ -1042,6 +1048,8 @@
 		compatible = "ti,tas5825";
 		reg = <0x4d>;
 		#sound-dai-cells = <0>;
+		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+		clock-names = "mclk";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		pbtl-mode;
