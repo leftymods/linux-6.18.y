@@ -1041,6 +1041,7 @@
 		clock-names = "mclk";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
+		sound-name-prefix = "Tweeters";
 		status = "okay";
 	};
 
@@ -1053,6 +1054,7 @@
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		pbtl-mode;
+		sound-name-prefix = "Woofer";
 		status = "okay";
 	};
 
@@ -1131,4 +1133,25 @@
 	status = "okay";
 	pinctrl-0 = <&pwm_e_pins>;
 	pinctrl-names = "default";
+};
+
+/* Volume potentiometer on SAR ADC channel 0 */
+adc-keys {
+	compatible = "adc-keys";
+	io-channels = <&saradc 0>;
+	io-channel-names = "volume";
+	refetch-period = <100>;
+	
+	volume-up {
+		label = "volume-up";
+		linux,code = <115>; /* KEY_VOLUMEUP */
+		adc-threshold = <100 300>;
+		debounce = <50>;
+	};
+	volume-down {
+		label = "volume-down";
+		linux,code = <116>; /* KEY_VOLUMEDOWN */
+		adc-threshold = <900 1023>;
+		debounce = <50>;
+	};
 };

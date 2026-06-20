@@ -6,6 +6,7 @@
 //
 // Author: Shenghao Ding <shenghao-ding@ti.com>
 
+#include <linux/clk.h>
 #include <linux/crc8.h>
 #include <linux/dev_printk.h>
 #include <linux/firmware.h>
@@ -212,6 +213,9 @@ EXPORT_SYMBOL_GPL(tasdevice_dsp_remove);
 
 void tasdevice_remove(struct tasdevice_priv *tas_priv)
 {
+	if (tas_priv->mclk)
+		clk_disable_unprepare(tas_priv->mclk);
+
 	mutex_destroy(&tas_priv->codec_lock);
 }
 EXPORT_SYMBOL_GPL(tasdevice_remove);

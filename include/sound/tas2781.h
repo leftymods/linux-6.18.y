@@ -23,6 +23,8 @@
 
 #include "tas2781-dsp.h"
 
+struct clk;
+
 /* version number */
 #define TAS2781_DRV_VER			1
 #define SMARTAMP_MODULE_NAME		"tas2781"
@@ -209,6 +211,7 @@ struct tasdevice_priv {
 	unsigned char dev_name[32];
 	const unsigned char (*dvc_tlv_table)[4];
 	const char *name_prefix;
+	struct clk *mclk;
 	unsigned char ndev;
 	unsigned int dspbin_typ;
 	unsigned int magic_num;

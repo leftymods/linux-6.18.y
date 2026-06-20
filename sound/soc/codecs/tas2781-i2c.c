@@ -13,6 +13,7 @@
 // Author: Kevin Lu <kevin-lu@ti.com>
 //
 
+#include <linux/clk.h>
 #include <linux/crc8.h>
 #include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
@@ -2004,6 +2005,13 @@ static void tasdevice_parse_dt(struct tasdevice_priv *tas_priv)
 		dev_err(tas_priv->dev, "%s Can't get reset GPIO\n",
 			__func__);
 
+	tas_priv->mclk = devm_clk_get_optional(&client->dev, "mclk");
+	if (IS_ERR(tas_priv->mclk)) {
+		dev_warn(tas_priv->dev, "Failed to get mclk: %ld\n",
+			PTR_ERR(tas_priv->mclk));
+		tas_priv->mclk = NULL;
+	}
+
 	strcpy(tas_priv->dev_name, tasdevice_id[tas_priv->chip_id].name);
 }
 
@@ -2035,6 +2043,12 @@ static int tasdevice_i2c_probe(struct i2c_client *i2c)
 	}
 
 	tasdevice_parse_dt(tas_priv);
+
+	if (tas_priv->mclk) {
+		ret = clk_prepare_enable(tas_priv->mclk);
+		if (ret)
+			dev_warn(tas_priv->dev, "Failed to enable mclk: %d\n", ret);
+	}
 
 	ret = tasdevice_init(tas_priv);
 	if (ret)
