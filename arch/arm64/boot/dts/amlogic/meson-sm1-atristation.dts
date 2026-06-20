@@ -1022,7 +1022,7 @@
 	};
 };
 
-/* I2C2 - TAS5825M amps (tweeters 0x4c, woofer 0x4d) */
+/* I2C2 - TAS5825M amps (tweeters 0x4c, woofer 0x4d), RTC, EEPROMs */
 &i2c2 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_sda_x_pins>, <&i2c2_sck_x_pins>;
@@ -1045,6 +1045,24 @@
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		pbtl-mode;
+		status = "okay";
+	};
+
+	rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+		status = "okay";
+	};
+
+	eeprom@50 {
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+		status = "okay";
+	};
+
+	eeprom@55 {
+		compatible = "atmel,24c01";
+		reg = <0x55>;
 		status = "okay";
 	};
 };
