@@ -141,7 +141,7 @@
 	sound {
 	compatible = "amlogic,axg-sound-card";
 	model = "ATRISTATION";
-	audio-aux-devs = <&tdmin_b>;
+	audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
 
 	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
