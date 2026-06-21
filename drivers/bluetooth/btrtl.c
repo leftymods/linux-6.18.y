@@ -257,6 +257,15 @@ static const struct id_table ic_id_table[] = {
 	  .cfg_name = "rtl_bt/rtl8822cs_config",
 	  .hw_info  = "rtl8822cs" },
 
+	/* 8822C with UART interface (hci_rev from chip register) */
+	{ IC_INFO(RTL_ROM_LMP_8822B, 0xe, 0xc, HCI_UART),
+	  .config_needed = true,
+	  .has_rom_version = true,
+	  .has_msft_ext = true,
+	  .fw_name  = "rtl_bt/rtl8822cs_fw",
+	  .cfg_name = "rtl_bt/rtl8822cs_config",
+	  .hw_info  = "rtl8822cs" },
+
 	/* 8822C with UART interface (rev 0xe) */
 	{ IC_INFO(RTL_ROM_LMP_8822B, 0xc, 0xe, HCI_UART),
 	  .config_needed = true,
