@@ -171,7 +171,7 @@
 		sound-dai = <&frddr_c>;
 	};
 
-	/* I2S playback to TAS5825M amps */
+	/* I2S playback to SY6045S amps */
 	dai-link-3 {
 		sound-dai = <&tdmif_b>;
 		dai-format = "i2s";
@@ -478,9 +478,6 @@
 	external_phy: ethernet-phy@0 {
 		reg = <0>;
 		max-speed = <1000>;
-		reset-assert-us = <10000>;
-		reset-deassert-us = <80000>;
-		reset-gpios = <&gpio GPIOZ_15 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
 	};
 };
 
@@ -1029,35 +1026,37 @@
 	};
 };
 
-/* I2C2 - TAS5825M amps (tweeters 0x4c, woofer 0x4d), RTC, EEPROMs */
+/* I2C2 on Z-pins (GPIOZ_14/15) - SY6045S amps (tweeters/woofer), ES7210 ADC, RTC, EEPROMs */
 &i2c2 {
 	status = "okay";
-	pinctrl-0 = <&i2c2_sda_x_pins>, <&i2c2_sck_x_pins>;
+	pinctrl-0 = <&i2c2_sda_z_pins>, <&i2c2_sck_z_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
 
-	tweeter_amp: tas5825m@4c {
-		compatible = "ti,tas5825";
-		reg = <0x4c>;
+	tweeter_amp: sy6045s@2a {
+		compatible = "silergy,sy6045s";
+		reg = <0x2a>;
 		#sound-dai-cells = <0>;
-		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
-		clock-names = "mclk";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		sound-name-prefix = "Tweeters";
 		status = "okay";
 	};
 
-	woofer_amp: tas5825m@4d {
-		compatible = "ti,tas5825";
-		reg = <0x4d>;
+	woofer_amp: sy6045s@2b {
+		compatible = "silergy,sy6045s";
+		reg = <0x2b>;
 		#sound-dai-cells = <0>;
-		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
-		clock-names = "mclk";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&main_12v>;
 		pbtl-mode;
 		sound-name-prefix = "Woofer";
+		status = "okay";
+	};
+
+	feedback_adc: es7210@40 {
+		compatible = "everest,es7210_2ch";
+		reg = <0x40>;
 		status = "okay";
 	};
 
@@ -1070,6 +1069,12 @@
 	eeprom@50 {
 		compatible = "atmel,24c01";
 		reg = <0x50>;
+		status = "okay";
+	};
+
+	eeprom@52 {
+		compatible = "atmel,24c01";
+		reg = <0x52>;
 		status = "okay";
 	};
 
