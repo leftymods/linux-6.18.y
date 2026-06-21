@@ -62,7 +62,7 @@ static const struct snd_kcontrol_new sy6045s_snd_controls[] = {
 
 static const struct snd_soc_dapm_widget sy6045s_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("SPK_OUT"),
-	SND_SOC_DAPM_AIF_OUT("Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_IN("Playback", NULL, 0, SND_SOC_NOPM, 0, 0),
 };
 
 static const struct snd_soc_dapm_route sy6045s_dapm_routes[] = {
