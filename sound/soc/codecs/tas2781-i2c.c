@@ -2045,6 +2045,7 @@ static int tasdevice_i2c_probe(struct i2c_client *i2c)
 	tasdevice_parse_dt(tas_priv);
 
 	if (tas_priv->mclk) {
+		clk_set_rate(tas_priv->mclk, 24576000);
 		ret = clk_prepare_enable(tas_priv->mclk);
 		if (ret)
 			dev_warn(tas_priv->dev, "Failed to enable mclk: %d\n", ret);

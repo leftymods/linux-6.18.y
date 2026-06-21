@@ -143,7 +143,10 @@
 	model = "ATRISTATION";
 	audio-aux-devs = <&tdmin_b>;
 
-	audio-routing = "TAS5825M Tweeters Playback", "TAS5825M Woofer Playback";
+	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
+			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
+			"TDM_B Playback", "TDMOUT_B OUT";
 
 	clocks = <&clkc CLKID_MPLL2>,
 		 <&clkc CLKID_MPLL0>,
@@ -1017,7 +1020,7 @@
 	cs-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_LOW>;
 
 	led_screen: led-screen@0 {
-		compatible = "ya,led_screen";
+		compatible = "ya,led_screen", "linux,spidev";
 		reg = <0>;
 		spi-max-frequency = <4000000>;
 		max-brightness = <200>;
