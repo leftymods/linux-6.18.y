@@ -951,6 +951,9 @@ static int h5_btrtl_setup(struct h5 *h5)
 	if (err)
 		goto out_free;
 
+	rtl_dev_info(h5->hu->hdev, "controller baudrate = %u, flow control = %d\n",
+		     controller_baudrate, flow_control);
+
 	baudrate_data = cpu_to_le32(device_baudrate);
 	skb = __hci_cmd_sync(h5->hu->hdev, 0xfc17, sizeof(baudrate_data),
 			     &baudrate_data, HCI_INIT_TIMEOUT);
@@ -962,13 +965,29 @@ static int h5_btrtl_setup(struct h5 *h5)
 		kfree_skb(skb);
 	}
 	/* Give the device some time to set up the new baudrate. */
-	usleep_range(200000, 300000);
+	usleep_range(300000, 500000);
 
 	serdev_device_set_baudrate(h5->hu->serdev, controller_baudrate);
 	serdev_device_set_flow_control(h5->hu->serdev, flow_control);
 
 	if (flow_control)
 		set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
+
+	/* Flush any garbage data received during baudrate switch */
+	h5_reset_rx(h5);
+	skb_queue_purge(&h5->unack);
+	skb_queue_purge(&h5->rel);
+	skb_queue_purge(&h5->unrel);
+	h5->tx_seq = 0;
+	h5->tx_ack = 0;
+
+	/* Toggle device-wake to force controller to re-sync at new baudrate */
+	if (h5->device_wake_gpio) {
+		gpiod_set_value_cansleep(h5->device_wake_gpio, 0);
+		msleep(10);
+		gpiod_set_value_cansleep(h5->device_wake_gpio, 1);
+		msleep(50);
+	}
 
 	err = btrtl_download_firmware(h5->hu->hdev, btrtl_dev);
 	/* Give the device some time before the hci-core sends it a reset */

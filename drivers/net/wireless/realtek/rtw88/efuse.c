@@ -8,6 +8,7 @@
 #include "efuse.h"
 #include "reg.h"
 #include "debug.h"
+#include "hci.h"
 
 #define RTW_EFUSE_BANK_WIFI		0x0
 
@@ -96,8 +97,14 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 
 	switch_efuse_bank(rtwdev);
 
-	/* disable 2.5V LDO */
-	chip->ops->cfg_ldo25(rtwdev, false);
+	/* Enable 2.5V LDO for efuse read on SDIO */
+	if (rtw_hci_type(rtwdev) == RTW_HCI_TYPE_SDIO)
+		chip->ops->cfg_ldo25(rtwdev, true);
+	else
+		chip->ops->cfg_ldo25(rtwdev, false);
+
+	/* Give efuse controller time to stabilize after grant */
+	usleep_range(1000, 2000);
 
 	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 
@@ -110,8 +117,12 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 		do {
 			udelay(1);
 			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
-			if (--cnt == 0)
+			if (--cnt == 0) {
+				rtw_err(rtwdev, "efuse read timeout at addr %u (ctrl=0x%08x)\n",
+					addr, efuse_ctl);
+				rtw_chip_efuse_grant_off(rtwdev);
 				return -EBUSY;
+			}
 		} while (!(efuse_ctl & BIT_EF_FLAG));
 
 		*(map + addr) = (u8)(efuse_ctl & BIT_MASK_EF_DATA);
