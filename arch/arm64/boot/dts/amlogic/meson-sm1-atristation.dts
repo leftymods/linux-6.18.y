@@ -128,9 +128,11 @@
 	};
 
 	sound {
-	compatible = "amlogic,axg-sound-card";
+	compatible = "amlogic,auge-sound-card";
 	model = "ATRISTATION";
-	audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
+	audio-aux-devs = <&tdmout_b>, <&tdmin_b>, <&dmics>;
+	playback_channels = <2>;
+	capture_channels = <4>;
 
 	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
@@ -140,7 +142,10 @@
 			"TDMIN_B IN 4", "TDM_B Loopback",
 			"TODDR_A IN 1", "TDMIN_B OUT",
 			"TODDR_B IN 1", "TDMIN_B OUT",
-			"TODDR_C IN 1", "TDMIN_B OUT";
+			"TODDR_C IN 1", "TDMIN_B OUT",
+			"TODDR_A IN 4", "PDM Capture",
+			"TODDR_B IN 4", "PDM Capture",
+			"TODDR_C IN 4", "PDM Capture";
 
 	clocks = <&clkc CLKID_MPLL2>,
 		 <&clkc CLKID_MPLL0>,
@@ -165,7 +170,7 @@
 		sound-dai = <&frddr_c>;
 	};
 
-	/* I2S playback to SY6045S amps + capture from ES7210 ADC */
+	/* I2S playback to TAS5805M amps + capture from ES7210 ADC */
 	dai-link-3 {
 		sound-dai = <&tdmif_b>;
 		dai-format = "i2s";
@@ -223,7 +228,22 @@
 			sound-dai = <&hdmi_tx>;
 		};
 	};
+
+	/* PDM capture for digital microphones */
+	dai-link-9 {
+		sound-dai = <&pdm>;
+		dai-format = "pdm";
+		codec {
+			sound-dai = <&dmics>;
+		};
+	};
 };
+
+	/* PDM microphone array (4 channels) */
+	dmics: dmics {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "DMIC";
+	};
 
 	/* HDMI connector */
 	hdmi-connector {
@@ -587,6 +607,14 @@
 
 &toddr_c {
 	status = "okay";
+};
+
+&pdm {
+	status = "okay";
+	pinctrl-0 = <&pdm_dclk_x_pins>, <&pdm_din0_x_pins>,
+		    <&pdm_din1_x_pins>, <&pdm_din2_x_pins>,
+		    <&pdm_din3_x_pins>;
+	pinctrl-names = "default";
 };
 
 &toacodec {
@@ -1000,12 +1028,6 @@
 		reg = <0x53>;
 		status = "okay";
 	};
-
-	eeprom@52 {
-		compatible = "atmel,24c01";
-		reg = <0x52>;
-		status = "okay";
-	};
 };
 
 /* SPI1 - Quasar LED screen */
@@ -1026,31 +1048,27 @@
 	};
 };
 
-/* I2C2 on Z-pins (GPIOZ_14/15) - SY6045S amps (tweeters/woofer), ES7210 ADC, RTC, EEPROMs */
+/* I2C2 on Z-pins (GPIOZ_14/15) - TAS5805M amps, ES7210 ADC, IS31FL3733 LED */
 &i2c2 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_sda_z_pins>, <&i2c2_sck_z_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
 
-	tweeter_amp: sy6045s@2a {
-		compatible = "silergy,sy6045s";
-		reg = <0x2a>;
+	tweeter_amp: tas5805m@2d {
+		compatible = "ti,tas5805m";
+		reg = <0x2d>;
 		#sound-dai-cells = <0>;
-		vddio-supply = <&vddao_3v3>;
-		pvdd-supply = <&main_12v>;
-		sound-name-prefix = "Tweeters";
+		ti,dsp-config-name = "tweeters";
 		status = "okay";
 	};
 
-	woofer_amp: sy6045s@2b {
-		compatible = "silergy,sy6045s";
-		reg = <0x2b>;
+	woofer_amp: tas5805m@2c {
+		compatible = "ti,tas5805m";
+		reg = <0x2c>;
 		#sound-dai-cells = <0>;
-		vddio-supply = <&vddao_3v3>;
-		pvdd-supply = <&main_12v>;
-		pbtl-mode;
-		sound-name-prefix = "Woofer";
+		pdn-gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;
+		ti,dsp-config-name = "woofer";
 		status = "okay";
 	};
 
@@ -1063,28 +1081,18 @@
 		status = "okay";
 	};
 
-	rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
-		status = "okay";
-	};
-
-	eeprom@50 {
-		compatible = "atmel,24c01";
+	led_matrix: is31fl3733@50 {
+		compatible = "issi,is31fl3733";
 		reg = <0x50>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 		status = "okay";
-	};
 
-	eeprom@52 {
-		compatible = "atmel,24c01";
-		reg = <0x52>;
-		status = "okay";
-	};
-
-	eeprom@55 {
-		compatible = "atmel,24c01";
-		reg = <0x55>;
-		status = "okay";
+		quasar_led_screen: quasar-led-screen {
+			compatible = "quasar,led-screen";
+			cols = <25>;
+			rows = <4>;
+		};
 	};
 };
 
@@ -1094,13 +1102,6 @@
 };
 
 &gpio_ao {
-	amplifier_pwr {
-		gpio-hog;
-		gpios = <GPIOAO_11 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "amplifier-power";
-	};
-
 };
 
 /* WiFi RTL8822CS SDIO */
