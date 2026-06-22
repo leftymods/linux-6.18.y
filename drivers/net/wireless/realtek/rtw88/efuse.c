@@ -97,7 +97,7 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 
 	switch_efuse_bank(rtwdev);
 
-	/* Enable 2.5V LDO for efuse read on SDIO */
+	/* LDO25 setting: SDIO may need it enabled, USB/PCIe disabled */
 	if (rtw_hci_type(rtwdev) == RTW_HCI_TYPE_SDIO)
 		chip->ops->cfg_ldo25(rtwdev, true);
 	else
@@ -173,8 +173,8 @@ int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 
 	ret = rtw_dump_physical_efuse_map(rtwdev, phy_map);
 	if (ret) {
-		rtw_err(rtwdev, "failed to dump efuse physical map\n");
-		goto out_free;
+		rtw_warn(rtwdev, "failed to dump efuse physical map, using defaults\n");
+		memset(phy_map, 0xff, phy_size);
 	}
 
 	memset(log_map, 0xff, log_size);
