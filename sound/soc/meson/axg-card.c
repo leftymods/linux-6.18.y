@@ -354,6 +354,10 @@ static const struct of_device_id axg_card_of_match[] = {
 	{
 		.compatible = "amlogic,axg-sound-card",
 		.data = &axg_card_match_data,
+	},
+	{
+		.compatible = "amlogic,auge-sound-card",
+		.data = &axg_card_match_data,
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, axg_card_of_match);
