@@ -222,6 +222,48 @@ static const struct regmap_config es7210_regmap = {
 	.cache_type	= REGCACHE_MAPLE,
 };
 
+static int es7210_power_up(struct es7210_priv *priv)
+{
+	struct device *dev = regmap_get_device(priv->regmap);
+	unsigned int val;
+	int ret, i;
+
+	/* Soft reset and clear PDN */
+	regmap_write(priv->regmap, ES7210_REG_RESET, ES7210_RESET_ALL);
+	udelay(2000);
+	regmap_write(priv->regmap, ES7210_REG_RESET, 0x00);
+	msleep(50);
+
+	/* Verify chip is alive by writing and reading back a test register */
+	regmap_write(priv->regmap, ES7210_REG_ADC_INPUT_CONTROL, 0x5A);
+	usleep_range(1000, 2000);
+	ret = regmap_read(priv->regmap, ES7210_REG_ADC_INPUT_CONTROL, &val);
+	if (ret == 0 && val == 0x5A) {
+		dev_info(dev, "chip powered up successfully\n");
+		return 0;
+	}
+
+	/* Chip may need MCLK to be running for a while before responding */
+	for (i = 0; i < 5; i++) {
+		msleep(100);
+		regmap_write(priv->regmap, ES7210_REG_RESET, ES7210_RESET_ALL);
+		udelay(2000);
+		regmap_write(priv->regmap, ES7210_REG_RESET, 0x00);
+		msleep(50);
+
+		regmap_write(priv->regmap, ES7210_REG_ADC_INPUT_CONTROL, 0x5A);
+		usleep_range(1000, 2000);
+		ret = regmap_read(priv->regmap, ES7210_REG_ADC_INPUT_CONTROL, &val);
+		if (ret == 0 && val == 0x5A) {
+			dev_info(dev, "chip powered up after %d retries\n", i + 1);
+			return 0;
+		}
+	}
+
+	dev_warn(dev, "chip does not respond after power-up sequence\n");
+	return -ENODEV;
+}
+
 static int es7210_i2c_probe(struct i2c_client *i2c)
 {
 	struct device *dev = &i2c->dev;
@@ -252,10 +294,13 @@ static int es7210_i2c_probe(struct i2c_client *i2c)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-	if (regmap_read(priv->regmap, ES7210_REG_CHIP_ID, &val) < 0)
-		dev_warn(dev, "chip not responding, trying reset\n");
-	else if (val != ES7210_CHIP_ID)
-		dev_warn(dev, "chip ID mismatch: 0x%02x, continuing\n", val);
+	if (regmap_read(priv->regmap, ES7210_REG_CHIP_ID, &val) < 0) {
+		dev_warn(dev, "chip not responding, trying power-up sequence\n");
+		es7210_power_up(priv);
+	} else if (val != ES7210_CHIP_ID) {
+		dev_warn(dev, "chip ID mismatch: 0x%02x, trying power-up sequence\n", val);
+		es7210_power_up(priv);
+	}
 
 	return devm_snd_soc_register_component(dev, &es7210_component_driver,
 					       &es7210_dai, 1);

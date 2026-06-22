@@ -93,18 +93,20 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 	u32 addr;
 	u32 cnt;
 
-	rtw_chip_efuse_grant_on(rtwdev);
-
-	switch_efuse_bank(rtwdev);
-
-	/* LDO25 setting: SDIO may need it enabled, USB/PCIe disabled */
+	/* LDO25 must be enabled BEFORE efuse grant on some SDIO modules */
 	if (rtw_hci_type(rtwdev) == RTW_HCI_TYPE_SDIO)
 		chip->ops->cfg_ldo25(rtwdev, true);
 	else
 		chip->ops->cfg_ldo25(rtwdev, false);
 
-	/* Give efuse controller time to stabilize after grant */
-	usleep_range(1000, 2000);
+	usleep_range(2000, 3000);
+
+	rtw_chip_efuse_grant_on(rtwdev);
+
+	switch_efuse_bank(rtwdev);
+
+	/* Give efuse controller time to stabilize */
+	usleep_range(10000, 15000);
 
 	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 
@@ -113,7 +115,7 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 		efuse_ctl |= (addr & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR;
 		rtw_write32(rtwdev, REG_EFUSE_CTRL, efuse_ctl & (~BIT_EF_FLAG));
 
-		cnt = 1000000;
+		cnt = 2000000;
 		do {
 			udelay(1);
 			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
@@ -172,6 +174,15 @@ int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 	}
 
 	ret = rtw_dump_physical_efuse_map(rtwdev, phy_map);
+	if (ret && rtw_hci_type(rtwdev) == RTW_HCI_TYPE_SDIO) {
+		/* Retry with LDO25 toggled — some SDIO modules need a fresh LDO cycle */
+		rtw_warn(rtwdev, "efuse read failed, retrying with LDO25 toggle\n");
+		chip->ops->cfg_ldo25(rtwdev, false);
+		usleep_range(10000, 15000);
+		chip->ops->cfg_ldo25(rtwdev, true);
+		usleep_range(5000, 10000);
+		ret = rtw_dump_physical_efuse_map(rtwdev, phy_map);
+	}
 	if (ret) {
 		rtw_warn(rtwdev, "failed to dump efuse physical map, using defaults\n");
 		memset(phy_map, 0xff, phy_size);
