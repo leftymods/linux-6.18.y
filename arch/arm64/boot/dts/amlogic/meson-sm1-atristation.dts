@@ -1096,6 +1096,9 @@
 			compatible = "quasar,led-screen";
 			cols = <25>;
 			rows = <4>;
+			yandex,pwr-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
+			yandex,rst-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_HIGH>;
+			interrupt-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
@@ -1145,7 +1148,6 @@
 	bluetooth: bluetooth {
 		compatible = "realtek,rtl8822cs-bt";
 		enable-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
-		host-wake-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
 		max-speed = <3000000>;
 		status = "okay";
 	};
