@@ -226,15 +226,6 @@
 		};
 	};
 
-	rotary-volume {
-		compatible = "rotary-encoder";
-		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_LOW>,
-			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
-		linux,axis = <REL_DIAL>;
-		rotary-encoder,encoding = "gray";
-		rotary-encoder,steps-per-period = <2>;
-		poll-interval = <100>;
-	};
 
 	sound {
 		compatible = "amlogic,auge-sound-card";
@@ -712,7 +703,7 @@
 		led_3c_red0: led@1 {
 			reg = <1>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring0-red";
+			label = "ring0-blue";
 		};
 		led_3c_green0: led@2 {
 			reg = <2>;
@@ -722,12 +713,12 @@
 		led_3c_blue0: led@3 {
 			reg = <3>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring0-blue";
+			label = "ring0-red";
 		};
 		led_3c_red1: led@4 {
 			reg = <4>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring1-red";
+			label = "ring1-blue";
 		};
 		led_3c_green1: led@5 {
 			reg = <5>;
@@ -737,12 +728,12 @@
 		led_3c_blue1: led@6 {
 			reg = <6>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring1-blue";
+			label = "ring1-red";
 		};
 		led_3c_red2: led@7 {
 			reg = <7>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring2-red";
+			label = "ring2-blue";
 		};
 		led_3c_green2: led@8 {
 			reg = <8>;
@@ -752,12 +743,12 @@
 		led_3c_blue2: led@9 {
 			reg = <9>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring2-blue";
+			label = "ring2-red";
 		};
 		led_3c_red3: led@10 {
 			reg = <10>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring3-red";
+			label = "ring3-blue";
 		};
 		led_3c_green3: led@11 {
 			reg = <11>;
@@ -767,12 +758,12 @@
 		led_3c_blue3: led@12 {
 			reg = <12>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring3-blue";
+			label = "ring3-red";
 		};
 		led_3c_red4: led@13 {
 			reg = <13>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring4-red";
+			label = "ring4-blue";
 		};
 		led_3c_green4: led@14 {
 			reg = <14>;
@@ -782,12 +773,12 @@
 		led_3c_blue4: led@15 {
 			reg = <15>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring4-blue";
+			label = "ring4-red";
 		};
 		led_3c_red5: led@16 {
 			reg = <16>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring5-red";
+			label = "ring5-blue";
 		};
 		led_3c_green5: led@17 {
 			reg = <17>;
@@ -797,12 +788,12 @@
 		led_3c_blue5: led@18 {
 			reg = <18>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring5-blue";
+			label = "ring5-red";
 		};
 		led_3c_red6: led@19 {
 			reg = <19>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring6-red";
+			label = "ring6-blue";
 		};
 		led_3c_green6: led@20 {
 			reg = <20>;
@@ -812,12 +803,12 @@
 		led_3c_blue6: led@21 {
 			reg = <21>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring6-blue";
+			label = "ring6-red";
 		};
 		led_3c_red7: led@22 {
 			reg = <22>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring7-red";
+			label = "ring7-blue";
 		};
 		led_3c_green7: led@23 {
 			reg = <23>;
@@ -827,12 +818,12 @@
 		led_3c_blue7: led@24 {
 			reg = <24>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring7-blue";
+			label = "ring7-red";
 		};
 		led_3c_red8: led@25 {
 			reg = <25>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring8-red";
+			label = "ring8-blue";
 		};
 		led_3c_green8: led@26 {
 			reg = <26>;
@@ -842,12 +833,12 @@
 		led_3c_blue8: led@27 {
 			reg = <27>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring8-blue";
+			label = "ring8-red";
 		};
 		led_3c_red9: led@28 {
 			reg = <28>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring9-red";
+			label = "ring9-blue";
 		};
 		led_3c_green9: led@29 {
 			reg = <29>;
@@ -857,12 +848,12 @@
 		led_3c_blue9: led@30 {
 			reg = <30>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring9-blue";
+			label = "ring9-red";
 		};
 		led_3c_red10: led@31 {
 			reg = <31>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring10-red";
+			label = "ring10-blue";
 		};
 		led_3c_green10: led@32 {
 			reg = <32>;
@@ -872,12 +863,12 @@
 		led_3c_blue10: led@33 {
 			reg = <33>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring10-blue";
+			label = "ring10-red";
 		};
 		led_3c_red11: led@34 {
 			reg = <34>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring11-red";
+			label = "ring11-blue";
 		};
 		led_3c_green11: led@35 {
 			reg = <35>;
@@ -887,7 +878,7 @@
 		led_3c_blue11: led@36 {
 			reg = <36>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring11-blue";
+			label = "ring11-red";
 		};
 	};
 
@@ -901,7 +892,7 @@
 		led_3f_red12: led@1 {
 			reg = <1>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring12-red";
+			label = "ring12-blue";
 		};
 		led_3f_green12: led@2 {
 			reg = <2>;
@@ -911,12 +902,12 @@
 		led_3f_blue12: led@3 {
 			reg = <3>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring12-blue";
+			label = "ring12-red";
 		};
 		led_3f_red13: led@4 {
 			reg = <4>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring13-red";
+			label = "ring13-blue";
 		};
 		led_3f_green13: led@5 {
 			reg = <5>;
@@ -926,12 +917,12 @@
 		led_3f_blue13: led@6 {
 			reg = <6>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring13-blue";
+			label = "ring13-red";
 		};
 		led_3f_red14: led@7 {
 			reg = <7>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring14-red";
+			label = "ring14-blue";
 		};
 		led_3f_green14: led@8 {
 			reg = <8>;
@@ -941,12 +932,12 @@
 		led_3f_blue14: led@9 {
 			reg = <9>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring14-blue";
+			label = "ring14-red";
 		};
 		led_3f_red15: led@10 {
 			reg = <10>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring15-red";
+			label = "ring15-blue";
 		};
 		led_3f_green15: led@11 {
 			reg = <11>;
@@ -956,12 +947,12 @@
 		led_3f_blue15: led@12 {
 			reg = <12>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring15-blue";
+			label = "ring15-red";
 		};
 		led_3f_red16: led@13 {
 			reg = <13>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring16-red";
+			label = "ring16-blue";
 		};
 		led_3f_green16: led@14 {
 			reg = <14>;
@@ -971,12 +962,12 @@
 		led_3f_blue16: led@15 {
 			reg = <15>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring16-blue";
+			label = "ring16-red";
 		};
 		led_3f_red17: led@16 {
 			reg = <16>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring17-red";
+			label = "ring17-blue";
 		};
 		led_3f_green17: led@17 {
 			reg = <17>;
@@ -986,12 +977,12 @@
 		led_3f_blue17: led@18 {
 			reg = <18>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring17-blue";
+			label = "ring17-red";
 		};
 		led_3f_red18: led@19 {
 			reg = <19>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring18-red";
+			label = "ring18-blue";
 		};
 		led_3f_green18: led@20 {
 			reg = <20>;
@@ -1001,12 +992,12 @@
 		led_3f_blue18: led@21 {
 			reg = <21>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring18-blue";
+			label = "ring18-red";
 		};
 		led_3f_red19: led@22 {
 			reg = <22>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring19-red";
+			label = "ring19-blue";
 		};
 		led_3f_green19: led@23 {
 			reg = <23>;
@@ -1016,12 +1007,12 @@
 		led_3f_blue19: led@24 {
 			reg = <24>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring19-blue";
+			label = "ring19-red";
 		};
 		led_3f_red20: led@25 {
 			reg = <25>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring20-red";
+			label = "ring20-blue";
 		};
 		led_3f_green20: led@26 {
 			reg = <26>;
@@ -1031,12 +1022,12 @@
 		led_3f_blue20: led@27 {
 			reg = <27>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring20-blue";
+			label = "ring20-red";
 		};
 		led_3f_red21: led@28 {
 			reg = <28>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring21-red";
+			label = "ring21-blue";
 		};
 		led_3f_green21: led@29 {
 			reg = <29>;
@@ -1046,12 +1037,12 @@
 		led_3f_blue21: led@30 {
 			reg = <30>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring21-blue";
+			label = "ring21-red";
 		};
 		led_3f_red22: led@31 {
 			reg = <31>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring22-red";
+			label = "ring22-blue";
 		};
 		led_3f_green22: led@32 {
 			reg = <32>;
@@ -1061,12 +1052,12 @@
 		led_3f_blue22: led@33 {
 			reg = <33>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring22-blue";
+			label = "ring22-red";
 		};
 		led_3f_red23: led@34 {
 			reg = <34>;
 			color = <LED_COLOR_ID_BLUE>;
-			label = "ring23-red";
+			label = "ring23-blue";
 		};
 		led_3f_green23: led@35 {
 			reg = <35>;
@@ -1076,7 +1067,7 @@
 		led_3f_blue23: led@36 {
 			reg = <36>;
 			color = <LED_COLOR_ID_RED>;
-			label = "ring23-blue";
+			label = "ring23-red";
 		};
 	};
 
