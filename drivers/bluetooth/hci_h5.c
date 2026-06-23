@@ -980,14 +980,6 @@ static int h5_btrtl_setup(struct h5 *h5)
 		}
 	}
 
-	/* Enable hardware flow control whenever the config requests it,
-	 * even when we stay at 115200.  Without RTS/CTS the firmware
-	 * download (15 KB, sent in 252-byte fragments) can time out.
-	 */
-	serdev_device_set_flow_control(h5->hu->serdev, flow_control);
-	if (flow_control)
-		set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
-
 	if (controller_baudrate != 115200) {
 		baudrate_data = cpu_to_le32(device_baudrate);
 		skb = __hci_cmd_sync(h5->hu->hdev, 0xfc17, sizeof(baudrate_data),
@@ -1003,6 +995,10 @@ static int h5_btrtl_setup(struct h5 *h5)
 		usleep_range(300000, 500000);
 
 		serdev_device_set_baudrate(h5->hu->serdev, controller_baudrate);
+		serdev_device_set_flow_control(h5->hu->serdev, flow_control);
+
+		if (flow_control)
+			set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
 
 		/* Flush any garbage data received during baudrate switch */
 		h5_reset_rx(h5);
@@ -1019,6 +1015,15 @@ static int h5_btrtl_setup(struct h5 *h5)
 			gpiod_set_value_cansleep(h5->device_wake_gpio, 1);
 			msleep(50);
 		}
+	}
+
+	/* If we stayed at 115200, still enable flow control before
+	 * the firmware download — without it the 15 KB transfer in
+	 * 252-byte fragments can time out (-110).
+	 */
+	if (controller_baudrate == 115200 && flow_control) {
+		serdev_device_set_flow_control(h5->hu->serdev, true);
+		set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
 	}
 
 	err = btrtl_download_firmware(h5->hu->hdev, btrtl_dev);

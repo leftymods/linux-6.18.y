@@ -69,7 +69,8 @@ static int rtw8822c_read_efuse(struct rtw_dev *rtwdev, u8 *log_map)
 	if (efuse->thermal_meter[RF_PATH_B] == 0xff)
 		efuse->thermal_meter[RF_PATH_B] = 0x33;
 	efuse->thermal_meter_k =
-			(map->path_a_thermal + map->path_b_thermal) >> 1;
+			(efuse->thermal_meter[RF_PATH_A] +
+			 efuse->thermal_meter[RF_PATH_B]) >> 1;
 	efuse->power_track_type = (map->tx_pwr_calibrate_rate >> 4) & 0xf;
 
 	for (i = 0; i < 4; i++)
