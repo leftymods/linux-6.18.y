@@ -39,6 +39,8 @@ static void rtw8822cs_efuse_parsing(struct rtw_efuse *efuse,
 				    struct rtw8822c_efuse *map)
 {
 	ether_addr_copy(efuse->addr, map->s.mac_addr);
+	if (is_zero_ether_addr(efuse->addr) || is_broadcast_ether_addr(efuse->addr))
+		eth_random_addr(efuse->addr);
 }
 
 static int rtw8822c_read_efuse(struct rtw_dev *rtwdev, u8 *log_map)
@@ -51,15 +53,21 @@ static int rtw8822c_read_efuse(struct rtw_dev *rtwdev, u8 *log_map)
 
 	efuse->usb_mode_switch = u8_get_bits(map->usb_mode, BIT(7));
 	efuse->rfe_option = map->rfe_option;
+	if (efuse->rfe_option == 0xff)
+		efuse->rfe_option = 0;
 	efuse->rf_board_option = map->rf_board_option;
 	efuse->crystal_cap = map->xtal_k & XCAP_MASK;
 	efuse->channel_plan = map->channel_plan;
 	efuse->country_code[0] = map->country_code[0];
 	efuse->country_code[1] = map->country_code[1];
 	efuse->bt_setting = map->rf_bt_setting;
-	efuse->regd = map->rf_board_option & 0x7;
+	efuse->regd = efuse->rf_board_option & 0x7;
 	efuse->thermal_meter[RF_PATH_A] = map->path_a_thermal;
 	efuse->thermal_meter[RF_PATH_B] = map->path_b_thermal;
+	if (efuse->thermal_meter[RF_PATH_A] == 0xff)
+		efuse->thermal_meter[RF_PATH_A] = 0x33;
+	if (efuse->thermal_meter[RF_PATH_B] == 0xff)
+		efuse->thermal_meter[RF_PATH_B] = 0x33;
 	efuse->thermal_meter_k =
 			(map->path_a_thermal + map->path_b_thermal) >> 1;
 	efuse->power_track_type = (map->tx_pwr_calibrate_rate >> 4) & 0xf;
