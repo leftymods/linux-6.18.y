@@ -182,16 +182,6 @@
 		pwms = <&pwm_ef 0 30518 0>;
 	};
 
-	/* Amplifier power gate */
-	ampl_pwr: regulator-ampl-pwr {
-		compatible = "regulator-fixed";
-		regulator-name = "AMPL_PWR";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-boot-on;
-	};
 
 	/* PDM microphone array (4 channels) */
 	dmics: dmics {
@@ -213,6 +203,7 @@
 
 	gpio-keys {
 		compatible = "gpio-keys";
+		poll-interval = <100>;
 
 		function-key {
 			label = "Fn";
@@ -665,9 +656,9 @@
 
 &pdm {
 	status = "okay";
-	pinctrl-0 = <&pdm_dclk_x_pins>, <&pdm_din0_x_pins>,
-		    <&pdm_din1_x_pins>, <&pdm_din2_x_pins>,
-		    <&pdm_din3_x_pins>;
+	pinctrl-0 = <&pdm_dclk_a_pins>, <&pdm_din0_a_pins>,
+		    <&pdm_din1_a_pins>, <&pdm_din2_a_pins>,
+		    <&pdm_din3_a_pins>;
 	pinctrl-names = "default";
 };
 
@@ -1207,4 +1198,8 @@
 	status = "okay";
 	pinctrl-0 = <&pwm_e_pins>;
 	pinctrl-names = "default";
+};
+
+&mali {
+	mali-supply = <&vddcpu>;
 };
