@@ -1115,8 +1115,7 @@
 &sd_emmc_a {
 	status = "okay";
 	pinctrl-0 = <&sdio_pins>;
-	pinctrl-1 = <&sdio_clk_gate_pins>;
-	pinctrl-names = "default", "clk-gate";
+	pinctrl-names = "default";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	bus-width = <4>;

@@ -955,16 +955,15 @@ static int h5_btrtl_setup(struct h5 *h5)
 		     controller_baudrate, flow_control);
 
 	/*
-	 * Skip baudrate switch on platforms where the UART clock
-	 * (24MHz / 3 = 8MHz) cannot produce certain rates accurately.
-	 * 1.5 Mbps would be 1.6 Mbps (6.7% error) which corrupts all data.
-	 * Stay at 115200 where the link is reliable; firmware download is
-	 * slower but functional.
+	 * The meson-g12a UART divides the 24 MHz XTAL by 2 (not 3) to
+	 * get a 12 MHz baud base.  With 12 MHz the common Realtek rates
+	 * are exact: 3 Mbps → div 4, 1.5 Mbps → div 8, 1 Mbps → div 12.
+	 * Fall back to 115200 only if the error exceeds 2 %.
 	 */
 	if (controller_baudrate != 115200) {
 		unsigned int uartclk = 24000000;
-		unsigned int div = DIV_ROUND_CLOSEST(uartclk / 3, controller_baudrate);
-		unsigned int actual = (uartclk / 3) / div;
+		unsigned int div = DIV_ROUND_CLOSEST(uartclk / 2, controller_baudrate);
+		unsigned int actual = (uartclk / 2) / div;
 		int diff = (int)actual - (int)controller_baudrate;
 		int err_pct;
 
@@ -978,9 +977,16 @@ static int h5_btrtl_setup(struct h5 *h5)
 				controller_baudrate, actual, err_pct);
 			controller_baudrate = 115200;
 			device_baudrate = 0x00002580;
-			flow_control = false;
 		}
 	}
+
+	/* Enable hardware flow control whenever the config requests it,
+	 * even when we stay at 115200.  Without RTS/CTS the firmware
+	 * download (15 KB, sent in 252-byte fragments) can time out.
+	 */
+	serdev_device_set_flow_control(h5->hu->serdev, flow_control);
+	if (flow_control)
+		set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
 
 	if (controller_baudrate != 115200) {
 		baudrate_data = cpu_to_le32(device_baudrate);
@@ -997,10 +1003,6 @@ static int h5_btrtl_setup(struct h5 *h5)
 		usleep_range(300000, 500000);
 
 		serdev_device_set_baudrate(h5->hu->serdev, controller_baudrate);
-		serdev_device_set_flow_control(h5->hu->serdev, flow_control);
-
-		if (flow_control)
-			set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
 
 		/* Flush any garbage data received during baudrate switch */
 		h5_reset_rx(h5);

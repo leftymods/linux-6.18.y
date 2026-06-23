@@ -343,7 +343,8 @@ static void do_work(struct work_struct *work)
 	usleep_range(5000, 10000);
 	send_cfg(rm, dsp_cfg_preboot, ARRAY_SIZE(dsp_cfg_preboot));
 	usleep_range(5000, 15000);
-	send_cfg(rm, tas5805m->dsp_cfg_data, tas5805m->dsp_cfg_len);
+	if (tas5805m->dsp_cfg_data && tas5805m->dsp_cfg_len > 0)
+		send_cfg(rm, tas5805m->dsp_cfg_data, tas5805m->dsp_cfg_len);
 
 	tas5805m->is_powered = true;
 	tas5805m_refresh(tas5805m);
@@ -512,23 +513,27 @@ static int tas5805m_i2c_probe(struct i2c_client *i2c)
 	snprintf(filename, sizeof(filename), "tas5805m_dsp_%s.bin",
 		 config_name);
 	ret = request_firmware(&fw, filename, dev);
-	if (ret)
-		return ret;
+	if (ret) {
+		dev_warn(dev, "DSP config '%s' not found, using passthrough\n",
+			 filename);
+		tas5805m->dsp_cfg_len = 0;
+		tas5805m->dsp_cfg_data = NULL;
+	} else {
+		if ((fw->size < 2) || (fw->size & 1)) {
+			dev_err(dev, "firmware is invalid\n");
+			release_firmware(fw);
+			return -EINVAL;
+		}
 
-	if ((fw->size < 2) || (fw->size & 1)) {
-		dev_err(dev, "firmware is invalid\n");
+		tas5805m->dsp_cfg_len = fw->size;
+		tas5805m->dsp_cfg_data = devm_kmemdup(dev, fw->data,
+						      fw->size, GFP_KERNEL);
+		if (!tas5805m->dsp_cfg_data) {
+			release_firmware(fw);
+			return -ENOMEM;
+		}
 		release_firmware(fw);
-		return -EINVAL;
 	}
-
-	tas5805m->dsp_cfg_len = fw->size;
-	tas5805m->dsp_cfg_data = devm_kmemdup(dev, fw->data, fw->size, GFP_KERNEL);
-	if (!tas5805m->dsp_cfg_data) {
-		release_firmware(fw);
-		return -ENOMEM;
-	}
-
-	release_firmware(fw);
 
 	/* Do the first part of the power-on here, while we can expect
 	 * the I2S interface to be quiet. We must raise PDN# and then
