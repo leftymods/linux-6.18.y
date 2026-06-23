@@ -65,6 +65,7 @@
 		gpio = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	flash_1v8: regulator-flash_1v8 {
@@ -147,6 +148,7 @@
 		gpio = <&gpio GPIOX_11 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
+		regulator-always-on;
 	};
 
 	/* Bluetooth enable */
@@ -158,6 +160,7 @@
 		gpio = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
+		regulator-always-on;
 	};
 
 
@@ -171,6 +174,7 @@
 		gpio = <&gpio GPIOX_8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <100000>;
+		regulator-boot-on;
 	};
 
 	/* USB power enable */
@@ -237,6 +241,7 @@
 		linux,axis = <REL_DIAL>;
 		rotary-encoder,encoding = "gray";
 		rotary-encoder,steps-per-period = <2>;
+		poll-interval = <100>;
 	};
 
 	sound {
@@ -1210,6 +1215,3 @@
 	pinctrl-names = "default";
 };
 
-&mali {
-	mali-supply = <&vddcpu>;
-};
