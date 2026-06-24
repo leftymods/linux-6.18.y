@@ -22,6 +22,8 @@
 
 	aliases {
 		serial0 = &uart_AO;
+		serial1 = &uart_A;
+		serial2 = &uart_AO_B;
 		serial4 = &uart_A;
 		ethernet0 = &ethmac;
 		led-controller0 = &is31fl3236_3c;
@@ -1066,6 +1068,7 @@
 		compatible = "silergy,sy6045s";
 		reg = <0x2a>;
 		#sound-dai-cells = <0>;
+		sound-name-prefix = "Tweeters";
 		vddio-supply = <&vcc_3v3>;
 		pvdd-supply = <&main_12v>;
 		status = "okay";
@@ -1075,6 +1078,7 @@
 		compatible = "silergy,sy6045s";
 		reg = <0x2b>;
 		#sound-dai-cells = <0>;
+		sound-name-prefix = "Woofer";
 		pbtl-mode;
 		vddio-supply = <&vcc_3v3>;
 		pvdd-supply = <&main_12v>;
@@ -1145,6 +1149,13 @@
 		max-speed = <3000000>;
 		status = "okay";
 	};
+};
+
+/* Zigbee radio on UART_AO_B (GPIOAO_8 TX, GPIOAO_9 RX) */
+&uart_AO_B {
+	status = "okay";
+	pinctrl-0 = <&uart_ao_b_8_9_pins>;
+	pinctrl-names = "default";
 };
 
 /* PWM_E for 32.768kHz WiFi clock */

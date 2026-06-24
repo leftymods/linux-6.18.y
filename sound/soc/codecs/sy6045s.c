@@ -54,10 +54,12 @@ static const struct regmap_config sy6045s_regmap = {
 	.cache_type	= REGCACHE_MAPLE,
 };
 
+static DECLARE_TLV_DB_SCALE(sy6045s_vol_tlv, -12600, 50, 0);
+
 static const struct snd_kcontrol_new sy6045s_snd_controls[] = {
 	SOC_DOUBLE_R_TLV("Master Playback Volume",
 			 0x02, 0x03,
-			 0, 0xff, 0, NULL),
+			 0, 0xff, 0, sy6045s_vol_tlv),
 };
 
 static const struct snd_soc_dapm_widget sy6045s_dapm_widgets[] = {
