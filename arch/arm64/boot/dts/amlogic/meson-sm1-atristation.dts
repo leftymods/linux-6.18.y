@@ -277,7 +277,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		vin-supply = <&vddao_3v3>;
-		gpio = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio GPIOX_7 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <100000>;
 	};
@@ -615,9 +615,9 @@
 
 &pdm {
 	status = "okay";
-	pinctrl-0 = <&pdm_dclk_x_pins>, <&pdm_din0_x_pins>,
-		    <&pdm_din1_x_pins>, <&pdm_din2_x_pins>,
-		    <&pdm_din3_x_pins>;
+	pinctrl-0 = <&pdm_dclk_c_pins>, <&pdm_din0_c_pins>,
+		    <&pdm_din1_c_pins>, <&pdm_din2_c_pins>,
+		    <&pdm_din3_c_pins>;
 	pinctrl-names = "default";
 };
 
@@ -659,8 +659,8 @@
 		status = "okay";
 		led_3c_red0: led@1 {
 			reg = <1>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb0-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb0-blue";
 		};
 		led_3c_green0: led@2 {
 			reg = <2>;
@@ -669,13 +669,13 @@
 		};
 		led_3c_blue0: led@3 {
 			reg = <3>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb0-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb0-red";
 		};
 		led_3c_red1: led@4 {
 			reg = <4>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb1-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb1-blue";
 		};
 		led_3c_green1: led@5 {
 			reg = <5>;
@@ -684,13 +684,13 @@
 		};
 		led_3c_blue1: led@6 {
 			reg = <6>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb1-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb1-red";
 		};
 		led_3c_red2: led@7 {
 			reg = <7>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb2-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb2-blue";
 		};
 		led_3c_green2: led@8 {
 			reg = <8>;
@@ -699,13 +699,13 @@
 		};
 		led_3c_blue2: led@9 {
 			reg = <9>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb2-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb2-red";
 		};
 		led_3c_red3: led@10 {
 			reg = <10>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb3-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb3-blue";
 		};
 		led_3c_green3: led@11 {
 			reg = <11>;
@@ -714,13 +714,13 @@
 		};
 		led_3c_blue3: led@12 {
 			reg = <12>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb3-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb3-red";
 		};
 		led_3c_red4: led@13 {
 			reg = <13>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb4-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb4-blue";
 		};
 		led_3c_green4: led@14 {
 			reg = <14>;
@@ -729,13 +729,13 @@
 		};
 		led_3c_blue4: led@15 {
 			reg = <15>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb4-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb4-red";
 		};
 		led_3c_red5: led@16 {
 			reg = <16>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb5-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb5-blue";
 		};
 		led_3c_green5: led@17 {
 			reg = <17>;
@@ -744,13 +744,13 @@
 		};
 		led_3c_blue5: led@18 {
 			reg = <18>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb5-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb5-red";
 		};
 		led_3c_red6: led@19 {
 			reg = <19>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb6-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb6-blue";
 		};
 		led_3c_green6: led@20 {
 			reg = <20>;
@@ -759,13 +759,13 @@
 		};
 		led_3c_blue6: led@21 {
 			reg = <21>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb6-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb6-red";
 		};
 		led_3c_red7: led@22 {
 			reg = <22>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb7-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb7-blue";
 		};
 		led_3c_green7: led@23 {
 			reg = <23>;
@@ -774,13 +774,13 @@
 		};
 		led_3c_blue7: led@24 {
 			reg = <24>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb7-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb7-red";
 		};
 		led_3c_red8: led@25 {
 			reg = <25>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb8-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb8-blue";
 		};
 		led_3c_green8: led@26 {
 			reg = <26>;
@@ -789,13 +789,13 @@
 		};
 		led_3c_blue8: led@27 {
 			reg = <27>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb8-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb8-red";
 		};
 		led_3c_red9: led@28 {
 			reg = <28>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb9-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb9-blue";
 		};
 		led_3c_green9: led@29 {
 			reg = <29>;
@@ -804,13 +804,13 @@
 		};
 		led_3c_blue9: led@30 {
 			reg = <30>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb9-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb9-red";
 		};
 		led_3c_red10: led@31 {
 			reg = <31>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb10-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb10-blue";
 		};
 		led_3c_green10: led@32 {
 			reg = <32>;
@@ -819,13 +819,13 @@
 		};
 		led_3c_blue10: led@33 {
 			reg = <33>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb10-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb10-red";
 		};
 		led_3c_red11: led@34 {
 			reg = <34>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb11-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb11-blue";
 		};
 		led_3c_green11: led@35 {
 			reg = <35>;
@@ -834,8 +834,8 @@
 		};
 		led_3c_blue11: led@36 {
 			reg = <36>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb11-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb11-red";
 		};
 	};
 
@@ -847,8 +847,8 @@
 		status = "okay";
 		led_3f_red12: led@1 {
 			reg = <1>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb12-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb12-blue";
 		};
 		led_3f_green12: led@2 {
 			reg = <2>;
@@ -857,13 +857,13 @@
 		};
 		led_3f_blue12: led@3 {
 			reg = <3>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb12-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb12-red";
 		};
 		led_3f_red13: led@4 {
 			reg = <4>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb13-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb13-blue";
 		};
 		led_3f_green13: led@5 {
 			reg = <5>;
@@ -872,13 +872,13 @@
 		};
 		led_3f_blue13: led@6 {
 			reg = <6>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb13-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb13-red";
 		};
 		led_3f_red14: led@7 {
 			reg = <7>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb14-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb14-blue";
 		};
 		led_3f_green14: led@8 {
 			reg = <8>;
@@ -887,13 +887,13 @@
 		};
 		led_3f_blue14: led@9 {
 			reg = <9>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb14-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb14-red";
 		};
 		led_3f_red15: led@10 {
 			reg = <10>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb15-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb15-blue";
 		};
 		led_3f_green15: led@11 {
 			reg = <11>;
@@ -902,13 +902,13 @@
 		};
 		led_3f_blue15: led@12 {
 			reg = <12>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb15-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb15-red";
 		};
 		led_3f_red16: led@13 {
 			reg = <13>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb16-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb16-blue";
 		};
 		led_3f_green16: led@14 {
 			reg = <14>;
@@ -917,13 +917,13 @@
 		};
 		led_3f_blue16: led@15 {
 			reg = <15>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb16-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb16-red";
 		};
 		led_3f_red17: led@16 {
 			reg = <16>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb17-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb17-blue";
 		};
 		led_3f_green17: led@17 {
 			reg = <17>;
@@ -932,13 +932,13 @@
 		};
 		led_3f_blue17: led@18 {
 			reg = <18>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb17-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb17-red";
 		};
 		led_3f_red18: led@19 {
 			reg = <19>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb18-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb18-blue";
 		};
 		led_3f_green18: led@20 {
 			reg = <20>;
@@ -947,13 +947,13 @@
 		};
 		led_3f_blue18: led@21 {
 			reg = <21>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb18-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb18-red";
 		};
 		led_3f_red19: led@22 {
 			reg = <22>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb19-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb19-blue";
 		};
 		led_3f_green19: led@23 {
 			reg = <23>;
@@ -962,13 +962,13 @@
 		};
 		led_3f_blue19: led@24 {
 			reg = <24>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb19-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb19-red";
 		};
 		led_3f_red20: led@25 {
 			reg = <25>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb20-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb20-blue";
 		};
 		led_3f_green20: led@26 {
 			reg = <26>;
@@ -977,13 +977,13 @@
 		};
 		led_3f_blue20: led@27 {
 			reg = <27>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb20-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb20-red";
 		};
 		led_3f_red21: led@28 {
 			reg = <28>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb21-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb21-blue";
 		};
 		led_3f_green21: led@29 {
 			reg = <29>;
@@ -992,13 +992,13 @@
 		};
 		led_3f_blue21: led@30 {
 			reg = <30>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb21-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb21-red";
 		};
 		led_3f_red22: led@31 {
 			reg = <31>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb22-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb22-blue";
 		};
 		led_3f_green22: led@32 {
 			reg = <32>;
@@ -1007,13 +1007,13 @@
 		};
 		led_3f_blue22: led@33 {
 			reg = <33>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb22-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb22-red";
 		};
 		led_3f_red23: led@34 {
 			reg = <34>;
-			color = <LED_COLOR_ID_RED>;
-			label = "rgb23-red";
+			color = <LED_COLOR_ID_BLUE>;
+			label = "rgb23-blue";
 		};
 		led_3f_green23: led@35 {
 			reg = <35>;
@@ -1022,8 +1022,8 @@
 		};
 		led_3f_blue23: led@36 {
 			reg = <36>;
-			color = <LED_COLOR_ID_BLUE>;
-			label = "rgb23-blue";
+			color = <LED_COLOR_ID_RED>;
+			label = "rgb23-red";
 		};
 	};
 
@@ -1085,21 +1085,10 @@
 		status = "okay";
 	};
 
-	led_matrix: is31fl3733@50 {
-		compatible = "issi,is31fl3733";
-		reg = <0x50>;
-		#address-cells = <1>;
-		#size-cells = <0>;
+	rtc: pcf8563@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
 		status = "okay";
-
-		quasar_led_screen: quasar-led-screen {
-			compatible = "quasar,led-screen";
-			cols = <25>;
-			rows = <4>;
-			yandex,pwr-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
-			yandex,rst-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_HIGH>;
-			interrupt-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_LOW>;
-		};
 	};
 };
 
@@ -1133,7 +1122,7 @@
 		reg = <1>;
 		compatible = "realtek,rtl8822cs";
 		interrupt-parent = <&gpio>;
-		interrupts = <GPIOX_15 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GPIOX_8 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -1147,6 +1136,7 @@
 	bluetooth: bluetooth {
 		compatible = "realtek,rtl8822cs-bt";
 		enable-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
+		host-wake-gpios = <&gpio GPIOX_20 GPIO_ACTIVE_HIGH>;
 		max-speed = <3000000>;
 		status = "okay";
 	};
