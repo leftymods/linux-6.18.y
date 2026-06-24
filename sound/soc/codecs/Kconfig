@@ -2150,6 +2150,13 @@ config SND_SOC_TAS5805M
 	  DSP. DSP configuration for each instance needs to be supplied
 	  via a device-tree attribute.
 
+
+config SND_SOC_SY6045S
+	tristate "Silergy SY6045S speaker amplifier"
+	depends on I2C
+	help
+	  Enable support for Silergy SY6045S Class-D amplifier.
+
 config SND_SOC_TAS6424
 	tristate "Texas Instruments TAS6424 Quad-Channel Audio amplifier"
 	depends on I2C
