@@ -170,7 +170,7 @@
 		sound-dai = <&frddr_c>;
 	};
 
-	/* I2S playback to TAS5805M amps + capture from ES7210 ADC */
+	/* I2S playback to SY6045S amps + capture from ES7210 ADC */
 	dai-link-3 {
 		sound-dai = <&tdmif_b>;
 		dai-format = "i2s";
@@ -1052,27 +1052,29 @@
 	};
 };
 
-/* I2C2 on Z-pins (GPIOZ_14/15) - TAS5805M amps, ES7210 ADC, IS31FL3733 LED */
+/* I2C2 on Z-pins (GPIOZ_14/15) - SY6045S amps, ES7210 ADC, IS31FL3733 LED */
 &i2c2 {
 	status = "okay";
 	pinctrl-0 = <&i2c2_sda_z_pins>, <&i2c2_sck_z_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
 
-	tweeter_amp: tas5805m@2d {
-		compatible = "ti,tas5805m";
-		reg = <0x2d>;
+	tweeter_amp: sy6045s@2a {
+		compatible = "silergy,sy6045s";
+		reg = <0x2a>;
 		#sound-dai-cells = <0>;
-		ti,dsp-config-name = "tweeters";
+		vddio-supply = <&vcc_3v3>;
+		pvdd-supply = <&main_12v>;
 		status = "okay";
 	};
 
-	woofer_amp: tas5805m@2c {
-		compatible = "ti,tas5805m";
-		reg = <0x2c>;
+	woofer_amp: sy6045s@2b {
+		compatible = "silergy,sy6045s";
+		reg = <0x2b>;
 		#sound-dai-cells = <0>;
-		pdn-gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;
-		ti,dsp-config-name = "woofer";
+		pbtl-mode;
+		vddio-supply = <&vcc_3v3>;
+		pvdd-supply = <&main_12v>;
 		status = "okay";
 	};
 
