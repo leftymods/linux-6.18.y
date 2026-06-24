@@ -1179,9 +1179,11 @@
 	};
 };
 
-/* Zigbee radio on UART_AO_B (GPIOAO_8 TX, GPIOAO_9 RX) */
+/* Zigbee radio on UART_AO_B (GPIOAO_8 TX, GPIOAO_9 RX)
+ * Disabled: GPIOAO_8 conflicts with tdm_ao_b_sclk needed for audio TDM B.
+ * Enable only if Zigbee module is populated and audio TDM B moved to different pins. */
 &uart_AO_B {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&uart_ao_b_8_9_pins>;
 	pinctrl-names = "default";
 };
