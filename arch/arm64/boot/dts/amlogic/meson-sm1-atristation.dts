@@ -241,7 +241,10 @@
 
 	/* PDM microphone array (4 channels) */
 	dmics: dmics {
+		compatible = "dmic-codec";
 		#sound-dai-cells = <0>;
+		num-channels = <4>;
+		wakeup-delay-ms = <50>;
 		sound-name-prefix = "DMIC";
 	};
 
