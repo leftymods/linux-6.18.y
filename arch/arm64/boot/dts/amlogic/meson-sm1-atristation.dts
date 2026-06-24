@@ -11,6 +11,7 @@
 
 #include "meson-sm1.dtsi"
 #include <dt-bindings/gpio/meson-g12a-gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/clock/axg-audio-clkc.h>
 #include <dt-bindings/sound/meson-g12a-toacodec.h>
@@ -305,23 +306,24 @@
 		regulator-always-on;
 	};
 
-	/* Kernel rotary encoder replacing userspace rotary-poll daemon */
+	/* Kernel rotary encoder replacing userspace rotary-poll daemon
+	 * Uses GPIOA_0 (periphs-banks offset 49) + GPIOAO_10 (aobus-banks offset 10) */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
-		gpios = <&gpio GPIOY_1 GPIO_ACTIVE_HIGH>,
+		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
 			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
 		linux,axis = <KEY_VOLUMEUP>;
 		rotary-encoder,encoding = "gray";
 		status = "okay";
 	};
 
-	/* Zigbee radio power/reset control */
+	/* Zigbee radio power/reset control
+	 * GPIOs TBD once hardware schematic confirmed */
 	zigbee-control {
 		compatible = "yandex,zigbee-control";
-		power-gpios = <&gpio GPIOY_0 GPIO_ACTIVE_HIGH>;
-		/* NOTE: GPIOY_1 shared with rotary-encoder — conflict if both populated */
-		reset-gpios = <&gpio GPIOY_1 GPIO_ACTIVE_HIGH>;
-		status = "okay";
+		power-gpios = <&gpio GPIOA_1 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio GPIOA_2 GPIO_ACTIVE_HIGH>;
+		status = "disabled";
 	};
 
 	/* RGB LED ring - 24 multicolor groups */
