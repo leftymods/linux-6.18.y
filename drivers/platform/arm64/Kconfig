@@ -70,6 +70,17 @@ config EC_LENOVO_YOGA_C630
 
 	  Say M or Y here to include this support.
 
+config ATRISTATION_ZIGBEE_CONTROL
+	tristate "AtriStation Zigbee radio control"
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  Say Y here to enable the Zigbee radio power/reset GPIO control
+	  for AtriStation S905X3 boards. The GPIOs are configured via
+	  device tree properties power-gpios and reset-gpios.
+
+	  To compile this driver as a module, choose M here.
+	  The module will be called zigbee-control.
+
 config EC_LENOVO_THINKPAD_T14S
 	tristate "Lenovo Thinkpad T14s Embedded Controller driver"
 	depends on ARCH_QCOM || COMPILE_TEST

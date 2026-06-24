@@ -305,6 +305,25 @@
 		regulator-always-on;
 	};
 
+	/* Kernel rotary encoder replacing userspace rotary-poll daemon */
+	rotary-encoder {
+		compatible = "gpio-rotary-encoder";
+		gpios = <&gpio GPIOY_1 GPIO_ACTIVE_HIGH>,
+			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+		linux,axis = <KEY_VOLUMEUP>;
+		rotary-encoder,encoding = "gray";
+		status = "okay";
+	};
+
+	/* Zigbee radio power/reset control */
+	zigbee-control {
+		compatible = "yandex,zigbee-control";
+		power-gpios = <&gpio GPIOY_0 GPIO_ACTIVE_HIGH>;
+		/* NOTE: GPIOY_1 shared with rotary-encoder — conflict if both populated */
+		reset-gpios = <&gpio GPIOY_1 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
 	/* RGB LED ring - 24 multicolor groups */
 	ring0: rgb0 {
 		compatible = "leds-group-multicolor";
@@ -1030,6 +1049,13 @@
 			color = <LED_COLOR_ID_RED>;
 			label = "rgb23-red";
 		};
+	};
+
+	pcba_eeprom: eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+		vcc-supply = <&vcc_3v3>;
+		status = "okay";
 	};
 
 	als@53 {
