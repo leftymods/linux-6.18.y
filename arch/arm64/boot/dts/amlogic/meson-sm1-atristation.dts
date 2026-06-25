@@ -309,7 +309,7 @@
 	};
 
 	/* Kernel rotary encoder replacing userspace rotary-poll daemon
-	 * Uses GPIOA_0 (periphs-banks offset 49) + GPIOAO_10 (aobus-banks offset 10) */
+	 * Uses GPIOA_0 (periphs offset 49 = Yandex 0x31) + GPIOAO_10 (Yandex 0x0a) */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
@@ -1196,6 +1196,18 @@
 	status = "okay";
 	pinctrl-0 = <&pwm_e_pins>;
 	pinctrl-names = "default";
+};
+
+/* GPIOAO_10 as amplifier power control (output-low, matches Yandex gpio_ampl_pwr)
+ * Note: same pin used by rotary-encoder input — verify HW schematic for conflict */
+&ao_pinctrl {
+	gpio_ampl_pwr: gpio-ampl-pwr {
+		mux {
+			groups = "GPIOAO_10";
+			function = "gpio_aobus";
+			output-low;
+		};
+	};
 };
 
 /* Volume potentiometer on SAR ADC channel 0
