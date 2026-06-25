@@ -177,6 +177,8 @@
 	dai-link-3 {
 		sound-dai = <&tdmif_b>;
 		dai-format = "i2s";
+		bitclock-master = <&tdmif_b>;
+		frame-master = <&tdmif_b>;
 		dai-tdm-slot-tx-mask-2 = <1 1>;
 		dai-tdm-slot-rx-mask-0 = <1 1>;
 		mclk-fs = <256>;
