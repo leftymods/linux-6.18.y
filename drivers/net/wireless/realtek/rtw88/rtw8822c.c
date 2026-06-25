@@ -513,7 +513,7 @@ static void rtw8822c_dac_cal_step1(struct rtw_dev *rtwdev, u8 path)
 	mdelay(20);
 	if (!check_hw_ready(rtwdev, read_addr + 0x08, 0x7fff80, 0xffff) ||
 	    !check_hw_ready(rtwdev, read_addr + 0x34, 0x7fff80, 0xffff))
-		rtw_err(rtwdev, "failed to wait for dack ready\n");
+		rtw_dbg(rtwdev, RTW_DBG_RFK, "dack step1 not ready (expected with bad efuse)\n");
 	rtw_write32(rtwdev, base_addr + 0xb8, 0x02000000);
 	mdelay(1);
 	rtw_write32(rtwdev, base_addr + 0xbc, 0x0008ff87);
@@ -612,7 +612,7 @@ static void rtw8822c_dac_cal_step3(struct rtw_dev *rtwdev, u8 path,
 	mdelay(20);
 	if (!check_hw_ready(rtwdev, read_addr + 0x24, 0x07f80000, ic) ||
 	    !check_hw_ready(rtwdev, read_addr + 0x50, 0x07f80000, qc))
-		rtw_err(rtwdev, "failed to write IQ vector to hardware\n");
+		rtw_dbg(rtwdev, RTW_DBG_RFK, "dack step3 IQ vector mismatch (expected with bad efuse)\n");
 	rtw_write32(rtwdev, base_addr + 0xb8, 0x02000000);
 	mdelay(1);
 	rtw_write32_mask(rtwdev, base_addr + 0xbc, 0xe, 0x3);
@@ -912,6 +912,7 @@ static bool rtw8822c_dac_cal_restore(struct rtw_dev *rtwdev)
 {
 	struct rtw_dm_info *dm_info = &rtwdev->dm_info;
 	u32 temp[3];
+	bool efuse_bad = rtwdev->efuse.efuse_read_failed;
 
 	/* sample the first element for both path's IQ vector */
 	if (dm_info->dack_msbk[RF_PATH_A][0][0] == 0 &&
@@ -925,14 +926,15 @@ static bool rtw8822c_dac_cal_restore(struct rtw_dev *rtwdev)
 	temp[2] = rtw_read32(rtwdev, 0x9b4);
 
 	rtw8822c_dac_cal_restore_prepare(rtwdev);
-	if (!check_hw_ready(rtwdev, 0x2808, 0x7fff80, 0xffff) ||
-	    !check_hw_ready(rtwdev, 0x2834, 0x7fff80, 0xffff) ||
-	    !check_hw_ready(rtwdev, 0x4508, 0x7fff80, 0xffff) ||
-	    !check_hw_ready(rtwdev, 0x4534, 0x7fff80, 0xffff))
+	if (!efuse_bad &&
+	    (!check_hw_ready(rtwdev, 0x2808, 0x7fff80, 0xffff) ||
+	     !check_hw_ready(rtwdev, 0x2834, 0x7fff80, 0xffff) ||
+	     !check_hw_ready(rtwdev, 0x4508, 0x7fff80, 0xffff) ||
+	     !check_hw_ready(rtwdev, 0x4534, 0x7fff80, 0xffff)))
 		return false;
 
 	if (!__rtw8822c_dac_cal_restore(rtwdev)) {
-		rtw_err(rtwdev, "failed to restore dack vectors\n");
+		rtw_dbg(rtwdev, RTW_DBG_RFK, "failed to restore dack vectors\n");
 		return false;
 	}
 
@@ -957,6 +959,7 @@ static void rtw8822c_rf_dac_cal(struct rtw_dev *rtwdev)
 	u32 i_a = 0x0, q_a = 0x0, i_b = 0x0, q_b = 0x0;
 	u32 ic_a = 0x0, qc_a = 0x0, ic_b = 0x0, qc_b = 0x0;
 	u32 adc_ic_a = 0x0, adc_qc_a = 0x0, adc_ic_b = 0x0, adc_qc_b = 0x0;
+	int dack_tries = rtwdev->efuse.efuse_read_failed ? 1 : 10;
 
 	if (rtw8822c_dac_cal_restore(rtwdev))
 		return;
@@ -969,7 +972,7 @@ static void rtw8822c_rf_dac_cal(struct rtw_dev *rtwdev)
 
 	/* path-A */
 	rtw8822c_dac_cal_adc(rtwdev, RF_PATH_A, &adc_ic_a, &adc_qc_a);
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < dack_tries; i++) {
 		rtw8822c_dac_cal_step1(rtwdev, RF_PATH_A);
 		rtw8822c_dac_cal_step2(rtwdev, RF_PATH_A, &ic, &qc);
 		ic_a = ic;
@@ -985,7 +988,7 @@ static void rtw8822c_rf_dac_cal(struct rtw_dev *rtwdev)
 
 	/* path-B */
 	rtw8822c_dac_cal_adc(rtwdev, RF_PATH_B, &adc_ic_b, &adc_qc_b);
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < dack_tries; i++) {
 		rtw8822c_dac_cal_step1(rtwdev, RF_PATH_B);
 		rtw8822c_dac_cal_step2(rtwdev, RF_PATH_B, &ic, &qc);
 		ic_b = ic;

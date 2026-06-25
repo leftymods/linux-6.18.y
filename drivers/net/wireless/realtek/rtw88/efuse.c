@@ -177,6 +177,7 @@ int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 	if (ret) {
 		rtw_warn(rtwdev, "failed to dump efuse physical map, using defaults\n");
 		memset(phy_map, 0xff, phy_size);
+		efuse->efuse_read_failed = true;
 	}
 
 	memset(log_map, 0xff, log_size);

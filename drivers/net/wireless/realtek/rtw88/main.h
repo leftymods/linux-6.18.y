@@ -1794,6 +1794,7 @@ struct rtw_efuse {
 	u32 physical_size;
 	u32 logical_size;
 	u32 protect_size;
+	bool efuse_read_failed;
 
 	u8 addr[ETH_ALEN];
 	u8 channel_plan;
