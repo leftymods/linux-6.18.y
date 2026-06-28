@@ -2,6 +2,7 @@
 /* Copyright(c) 2018-2019  Realtek Corporation
  */
 
+#include <linux/firmware.h>
 #include <linux/iopoll.h>
 
 #include "main.h"
@@ -156,6 +157,48 @@ int rtw_read8_physical_efuse(struct rtw_dev *rtwdev, u16 addr, u8 *data)
 }
 EXPORT_SYMBOL(rtw_read8_physical_efuse);
 
+static int rtw_efuse_read_from_file(struct rtw_dev *rtwdev, u8 *phy_map,
+				    u32 phy_size, u8 *log_map, u32 log_size)
+{
+	const struct firmware *fw = NULL;
+	int ret;
+
+	ret = request_firmware_direct(&fw, "rtl8822cs_efuse.bin", rtwdev->dev);
+	if (ret) {
+		ret = request_firmware_direct(&fw, "rtl8822cs_efuse.map",
+					      rtwdev->dev);
+	if (ret) {
+			rtw_dbg(rtwdev, RTW_DBG_EFUSE, "no efuse firmware file found\n");
+			return -ENOENT;
+		}
+	}
+
+	if (fw->size == phy_size) {
+		/* Raw physical efuse map -- parse into logical map */
+		memcpy(phy_map, fw->data, phy_size);
+		release_firmware(fw);
+
+		memset(log_map, 0xff, log_size);
+		ret = rtw_dump_logical_efuse_map(rtwdev, phy_map, log_map);
+		if (ret)
+			rtw_warn(rtwdev,
+				 "failed to parse physical efuse from file\n");
+		return ret;
+	}
+
+	if (fw->size == log_size) {
+		/* Logical efuse map -- use directly */
+		memcpy(log_map, fw->data, log_size);
+		release_firmware(fw);
+		return 0;
+	}
+
+	rtw_warn(rtwdev, "efuse firmware file has unexpected size %zu "
+		 "(expected %u or %u)\n", fw->size, phy_size, log_size);
+	release_firmware(fw);
+	return -EINVAL;
+}
+
 int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 {
 	const struct rtw_chip_info *chip = rtwdev->chip;
@@ -173,6 +216,15 @@ int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 		goto out_free;
 	}
 
+	ret = rtw_efuse_read_from_file(rtwdev, phy_map, phy_size,
+				       log_map, log_size);
+	if (ret == 0) {
+		/* File-based efuse loaded, skip HW dump */
+		memset(phy_map, 0xff, phy_size);
+		goto parse;
+	}
+
+	/* Fall through to HW efuse read */
 	ret = rtw_dump_physical_efuse_map(rtwdev, phy_map);
 	if (ret) {
 		rtw_warn(rtwdev, "failed to dump efuse physical map, using defaults\n");
@@ -187,6 +239,7 @@ int rtw_parse_efuse_map(struct rtw_dev *rtwdev)
 		goto out_free;
 	}
 
+parse:
 	ret = chip->ops->read_efuse(rtwdev, log_map);
 	if (ret) {
 		rtw_err(rtwdev, "failed to read efuse map\n");

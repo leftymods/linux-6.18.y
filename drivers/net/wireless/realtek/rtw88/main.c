@@ -2031,7 +2031,9 @@ static int rtw_chip_efuse_info_setup(struct rtw_dev *rtwdev)
 		goto out_disable;
 
 	if (efuse->crystal_cap == 0xff)
-		efuse->crystal_cap = 0;
+		efuse->crystal_cap = 0x3f;
+	if (efuse->efuse_read_failed)
+		efuse->crystal_cap = 0x3f;
 	if (efuse->pa_type_2g == 0xff)
 		efuse->pa_type_2g = 0;
 	if (efuse->pa_type_5g == 0xff)
