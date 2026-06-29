@@ -1919,7 +1919,7 @@ exit:
 }
 
 static int cfg80211_rtw_add_key(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 key callbacks take wireless_dev * */
 	struct wireless_dev *wdev
 #else
@@ -1934,7 +1934,7 @@ static int cfg80211_rtw_add_key(struct wiphy *wiphy,
 #endif
 	, const u8 *mac_addr, struct key_params *params)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -2097,7 +2097,7 @@ addkey_end:
 }
 
 static int cfg80211_rtw_get_key(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 key callbacks take wireless_dev * */
 	struct wireless_dev *wdev
 #else
@@ -2113,7 +2113,7 @@ static int cfg80211_rtw_get_key(struct wiphy *wiphy,
 	, const u8 *mac_addr, void *cookie
 	, void (*callback)(void *cookie, struct key_params *))
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -2301,7 +2301,7 @@ exit:
 }
 
 static int cfg80211_rtw_del_key(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 				/* upstream 033fe322f585: cfg80211 key callbacks take wireless_dev * */
 				struct wireless_dev *wdev,
 #else
@@ -2316,7 +2316,7 @@ static int cfg80211_rtw_del_key(struct wiphy *wiphy,
 				u8 key_index, const u8 *mac_addr)
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) */
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -2389,7 +2389,7 @@ static int cfg80211_rtw_set_default_key(struct wiphy *wiphy,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
 int cfg80211_rtw_set_default_mgmt_key(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: set_default_mgmt_key takes wireless_dev * */
 	struct wireless_dev *wdev
 #else
@@ -2400,7 +2400,7 @@ int cfg80211_rtw_set_default_mgmt_key(struct wiphy *wiphy,
 #endif
 	, u8 key_index)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -2551,7 +2551,7 @@ static void rtw_cfg80211_fill_mesh_only_sta_info(struct mesh_plink_ent *plink, s
 #endif /* CONFIG_RTW_MESH */
 
 static int cfg80211_rtw_get_station(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 station callbacks take wireless_dev * */
 	struct wireless_dev *wdev,
 #else
@@ -2564,7 +2564,7 @@ static int cfg80211_rtw_get_station(struct wiphy *wiphy,
 #endif
 	struct station_info *sinfo)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -4864,7 +4864,7 @@ void rtw_cfg80211_indicate_sta_assoc(_adapter *padapter, u8 *pmgmt_frame, uint f
 		sinfo.filled = STATION_INFO_ASSOC_REQ_IES;
 		sinfo.assoc_req_ies = pmgmt_frame + WLAN_HDR_A3_LEN + ie_offset;
 		sinfo.assoc_req_ies_len = frame_len - WLAN_HDR_A3_LEN - ie_offset;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 		/* upstream 033fe322f585: cfg80211_new_sta() takes wireless_dev * */
 		cfg80211_new_sta(ndev->ieee80211_ptr, get_addr2_ptr(pmgmt_frame), &sinfo, GFP_ATOMIC);
 #else
@@ -4915,7 +4915,7 @@ void rtw_cfg80211_indicate_sta_disassoc(_adapter *padapter, const u8 *da, unsign
 	RTW_INFO(FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(padapter));
 
 #if defined(RTW_USE_CFG80211_STA_EVENT) || defined(COMPAT_KERNEL_RELEASE)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211_del_sta() takes wireless_dev * */
 	cfg80211_del_sta(ndev->ieee80211_ptr, da, GFP_ATOMIC);
 #else
@@ -5887,7 +5887,7 @@ void dump_station_parameters(void *sel, struct wiphy *wiphy, const struct statio
 }
 
 static int	cfg80211_rtw_add_station(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 station callbacks take wireless_dev * */
 	struct wireless_dev *wdev,
 #else
@@ -5900,7 +5900,7 @@ static int	cfg80211_rtw_add_station(struct wiphy *wiphy,
 #endif
 	struct station_parameters *params)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -6045,7 +6045,7 @@ release_plink_ctl:
 
 			/* indicate new sta */
 			_rtw_memset(&sinfo, 0, sizeof(sinfo));
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 			/* upstream 033fe322f585: cfg80211_new_sta() takes wireless_dev * */
 			cfg80211_new_sta(ndev->ieee80211_ptr, mac, &sinfo, GFP_ATOMIC);
 #else
@@ -6073,7 +6073,7 @@ exit:
 }
 
 static int	cfg80211_rtw_del_station(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 station callbacks take wireless_dev * */
 	struct wireless_dev *wdev,
 #else
@@ -6088,7 +6088,7 @@ static int	cfg80211_rtw_del_station(struct wiphy *wiphy,
 #endif
 )
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -6210,7 +6210,7 @@ static int	cfg80211_rtw_del_station(struct wiphy *wiphy,
 }
 
 static int	cfg80211_rtw_change_station(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* upstream 033fe322f585: cfg80211 station callbacks take wireless_dev * */
 	struct wireless_dev *wdev,
 #else
@@ -6223,7 +6223,7 @@ static int	cfg80211_rtw_change_station(struct wiphy *wiphy,
 #endif
 	struct station_parameters *params)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
@@ -6289,7 +6289,7 @@ struct sta_info *rtw_sta_info_get_by_idx(struct sta_priv *pstapriv, const int id
 }
 
 static int	cfg80211_rtw_dump_station(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 		/* upstream 033fe322f585: cfg80211 station callbacks take wireless_dev * */
 		struct wireless_dev *wdev,
 #else
@@ -6297,7 +6297,7 @@ static int	cfg80211_rtw_dump_station(struct wiphy *wiphy,
 #endif
 		int idx, u8 *mac, struct station_info *sinfo)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
 	/* P2P device wdev (NL80211_IFTYPE_P2P_DEVICE) has no netdev */
 	struct net_device *ndev = wdev_to_ndev(wdev);
 
