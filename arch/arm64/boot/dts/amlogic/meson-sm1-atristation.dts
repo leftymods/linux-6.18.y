@@ -270,29 +270,33 @@
 			sound-dai = <&frddr_c>;
 		};
 
-		/* I2S playback to SY6045S amps + ES8156 headphone + ES7210 loopback */
+		/* I2S playback: ES8156 headphones (ch0-1), SY6045S speakers (ch4-5), ES7210 mic array (ch0-3) */
 		dai-link-3 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
+			bitclock-master = <&tdmif_b>;
+			frame-master = <&tdmif_b>;
+			dai-tdm-slot-tx-mask-0 = <1 1>;
 			dai-tdm-slot-tx-mask-2 = <1 1>;
 			dai-tdm-slot-rx-mask-0 = <1 1>;
+			dai-tdm-slot-rx-mask-1 = <1 1>;
 			mclk-fs = <256>;
 
 			codec-0 {
-				sound-dai = <&tweeter_amp>;
+				sound-dai = <&headphone_dac>;
 			};
 
 			codec-1 {
-				sound-dai = <&woofer_amp>;
+				sound-dai = <&tweeter_amp>;
 			};
 
 			codec-2 {
-				sound-dai = <&headphone_amp>;
+				sound-dai = <&woofer_amp>;
 			};
 
 			codec-3 {
-				sound-dai = <&feedback_adc>;
-				dai-tdm-slot-rx-mask = <1 1>;
+				sound-dai = <&mic_array>;
+				dai-tdm-slot-rx-mask = <1 1 1 1>;
 			};
 		};
 
@@ -1115,10 +1119,11 @@
 		status = "okay";
 	};
 
-	headphone_amp: es8156@8 {
+	headphone_dac: es8156@8 {
 		compatible = "everest,es8156";
 		reg = <0x08>;
 		#sound-dai-cells = <0>;
+		sound-name-prefix = "Headphone";
 		status = "okay";
 	};
 
@@ -1126,8 +1131,10 @@
 		compatible = "silergy,sy6045s";
 		reg = <0x2a>;
 		#sound-dai-cells = <0>;
+		sound-name-prefix = "Tweeters";
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&vdd_20v_ampl>;
+		restore-regs = <0x07 0x01 0xff 0x06 0x01 0x08>;
 		status = "okay";
 	};
 
@@ -1135,14 +1142,16 @@
 		compatible = "silergy,sy6045s";
 		reg = <0x2b>;
 		#sound-dai-cells = <0>;
+		sound-name-prefix = "Woofer";
 		pbtl-mode;
 		vddio-supply = <&vddao_3v3>;
 		pvdd-supply = <&vdd_20v_ampl>;
+		restore-regs = <0x07 0x01 0xff 0x06 0x01 0x08>;
 		status = "okay";
 	};
 
-	feedback_adc: es7210@40 {
-		compatible = "everest,es7210_2ch";
+	mic_array: es7210@40 {
+		compatible = "everest,es7210_4ch";
 		reg = <0x40>;
 		#sound-dai-cells = <0>;
 		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
