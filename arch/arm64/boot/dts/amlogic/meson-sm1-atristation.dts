@@ -192,8 +192,10 @@
 		post-power-on-delay-ms = <200>;
 	};
 	/* PDM microphone array (4 channels) */
-	dmics: dmics {
+	dmics: dmic-codec {
 		#sound-dai-cells = <0>;
+		compatible = "dmic-codec";
+		num-channels = <4>;
 		sound-name-prefix = "DMIC";
 	};
 
