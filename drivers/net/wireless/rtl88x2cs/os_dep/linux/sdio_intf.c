@@ -93,6 +93,7 @@ static const struct sdio_device_id sdio_ids[] = {
 
 #ifdef CONFIG_RTL8822C
 	{SDIO_DEVICE(0x024c, 0xC822), .class = SDIO_CLASS_WLAN, .driver_data = RTL8822C},
+	{SDIO_DEVICE(0x024c, 0xA822), .class = SDIO_CLASS_WLAN, .driver_data = RTL8822C}, /* ITON RW8822-50B1 */
 	{SDIO_DEVICE(0x024c, 0xD821), .class = SDIO_CLASS_WLAN, .driver_data = RTL8822C}, /* 8821DS */
 #endif
 
