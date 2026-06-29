@@ -1190,8 +1190,16 @@ config SND_SOC_HDMI_CODEC
 config SND_SOC_ES7134
 	tristate "Everest Semi ES7134 CODEC"
 
+config SND_SOC_ES7210
+	tristate "Everest Semi ES7210 4-channel ADC"
+	depends on I2C
+
 config SND_SOC_ES7241
 	tristate "Everest Semi ES7241 CODEC"
+
+config SND_SOC_ES8156
+	tristate "Everest Semi ES8156 8-channel DAC"
+	depends on I2C
 
 config SND_SOC_ES83XX_DSM_COMMON
 	depends on ACPI
