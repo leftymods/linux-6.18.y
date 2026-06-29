@@ -1176,7 +1176,7 @@
 	cap-sd-highspeed;
 	cap-sdio-irq;
 	mmc-pwrseq = <&wifi_pwrseq>;
-	max-frequency = <25000000>;
+	max-frequency = <20000000>;
 	non-removable;
 	disable-wp;
 	keep-power-in-suspend;
@@ -1198,7 +1198,9 @@
 	uart-has-rtscts;
 
 	bluetooth: bluetooth {
+		compatible = "realtek,rtl8822cs-bt";
 		host-wake-gpios = <&gpio 85 /* GPIOX_20 */ GPIO_ACTIVE_HIGH>;
+		device-wake-gpios = <&gpio 84 /* GPIOX_19 */ GPIO_ACTIVE_HIGH>;
 		max-speed = <3000000>;
 	};
 };
