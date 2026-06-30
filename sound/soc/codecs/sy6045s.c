@@ -42,8 +42,6 @@
 #include <sound/pcm_params.h>
 
 /* SY6045S register map */
-#define SY6045S_REG_RESET		0x00
-#define SY6045S_REG_MODE_CFG		0x01
 #define SY6045S_REG_FAULT		0x02
 #define SY6045S_REG_EQ_ACCESS		0x03
 #define SY6045S_REG_MUTE		0x06
@@ -453,19 +451,16 @@ static int sy6045s_init_hardcoded(struct sy6045s_priv *priv)
 	regmap_write(regmap, SY6045S_REG_VOL_CH1, 0x9F);
 	regmap_write(regmap, SY6045S_REG_VOL_CH2, 0x9F);
 
-	/* Pre/post scaler (from vendor firmware) */
-	{
-		u8 pre_scale[] = {0xE5, 0x55};
-		u8 post_scale[] = {0x7F, 0xFF};
-		u8 reserved[] = {0x5E, 0x00};
+	/* Pre/post scaler (vendor firmware sequence: 0x2C=E5, 0x2D=7F, 0x2E=FF) */
+	regmap_write(regmap, 0x2C, 0xE5);
+	regmap_write(regmap, 0x2D, 0x7F);
+	regmap_write(regmap, 0x2E, 0xFF);
 
-		regmap_raw_write(regmap, 0x2C, pre_scale, 2);
-		regmap_raw_write(regmap, 0x2E, post_scale, 2);
-		regmap_raw_write(regmap, 0x30, reserved, 2);
-	}
-
-	/* Set monitor */
-	regmap_write(regmap, SY6045S_REG_MONITOR, 0x90);
+	/* Set monitor (vendor: tweeters=0x90, woofer=0x00) */
+	if (priv->pbtl_mode)
+		regmap_write(regmap, SY6045S_REG_MONITOR, 0x00);
+	else
+		regmap_write(regmap, SY6045S_REG_MONITOR, 0x90);
 
 	/* Unmute */
 	regmap_write(regmap, SY6045S_REG_MUTE2, 0x00);
@@ -603,8 +598,7 @@ static const struct snd_soc_component_driver sy6045s_component_driver = {
 static bool sy6045s_volatile_reg(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
-	case 0x00: /* RESET/status */
-	case 0x02: /* FAULT */
+	case 0x02: /* FAULT status (read-only, clears on read) */
 		return true;
 	default:
 		return false;
