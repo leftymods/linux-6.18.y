@@ -2162,6 +2162,7 @@ config SND_SOC_TAS5805M
 config SND_SOC_SY6045S
 	tristate "Silergy SY6045S speaker amplifier"
 	depends on I2C
+	select REGMAP_I2C
 	help
 	  Enable support for Silergy SY6045S Class-D amplifier.
 
