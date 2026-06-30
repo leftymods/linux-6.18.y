@@ -259,6 +259,8 @@
 		assigned-clock-rates = <294912000>,
 				       <270950400>,
 				       <393216000>;
+		assigned-clocks = <&clkc_audio AUD_CLKID_TDM_MCLK_PAD0>;
+		assigned-clock-parents = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
 
 		dai-link-0 {
 			sound-dai = <&frddr_a>;
