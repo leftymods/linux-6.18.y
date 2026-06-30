@@ -57,8 +57,8 @@ static const struct regmap_config es8156_regmap_config = {
 static const DECLARE_TLV_DB_SCALE(es8156_dac_tlv, -9550, 50, 0);
 
 static const struct snd_kcontrol_new es8156_snd_controls[] = {
-	SOC_DOUBLE_R_TLV("Playback Volume", ES8156_VOLUME, ES8156_VOLUME,
-			 0, 0xff, 0, es8156_dac_tlv),
+	SOC_SINGLE_TLV("Playback Volume", ES8156_VOLUME, 0, 0xff, 0,
+		       es8156_dac_tlv),
 	SOC_SINGLE("Playback Switch", ES8156_DAC_MUTE, 2, 1, 1),
 };
 

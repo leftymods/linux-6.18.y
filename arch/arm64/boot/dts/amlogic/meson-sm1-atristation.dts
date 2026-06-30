@@ -1175,7 +1175,7 @@
 	};
 
 	mic_array: es7210@40 {
-		compatible = "everest,es7210_4ch";
+		compatible = "everest,es7210";
 		reg = <0x40>;
 		#sound-dai-cells = <0>;
 		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
