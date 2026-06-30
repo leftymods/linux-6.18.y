@@ -232,7 +232,7 @@ static int sy6045s_mute(struct snd_soc_dai *dai, int mute, int direction)
 static const struct snd_soc_dai_ops sy6045s_dai_ops = {
 	.hw_params	= sy6045s_hw_params,
 	.set_fmt	= sy6045s_set_dai_fmt,
-	.mute		= sy6045s_mute,
+	.mute_stream		= sy6045s_mute,
 	.trigger	= sy6045s_trigger,
 };
 
