@@ -40,7 +40,7 @@
 		reg = <0x0 0x0 0x0 0x80000000>;
 	};
 
-	vrtc: rtc {
+	vrtc_alarm: rtc {
 		compatible = "amlogic,aml_vrtc";
 		alarm_reg_addr = <0xff8000a8>;
 		timer_e_addr = <0xffd0f188>;
