@@ -245,96 +245,140 @@ static int sy6045s_reset_chip(struct sy6045s_priv *priv)
 }
 
 /* -------- firmware loading + settings parser ------------- */
+static int sy6045s_save_regs(struct sy6045s_priv *priv, u32 *saved)
+{
+	/* Save critical registers before firmware EQ write:
+	 * reg 0x03: Clock/Mode Control
+	 * reg 0x06: Mute/Filter Control
+	 * reg 0x07: Master Volume
+	 * reg 0x08: Channel 1 Volume
+	 * reg 0x09: Channel 2 Volume
+	 * reg 0x22: I2C EQ Mode
+	 */
+	static const u8 regs_to_save[] = { 0x03, 0x06, 0x07, 0x08, 0x09, 0x22 };
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regs_to_save); i++) {
+		unsigned int val;
+		int ret;
+
+		ret = regmap_read(priv->regmap, regs_to_save[i], &val);
+		if (ret) {
+			dev_err(&priv->i2c->dev,
+				"failed to save reg 0x%02x: %d\n",
+				regs_to_save[i], ret);
+			saved[i] = 0;
+		} else {
+			saved[i] = val;
+		}
+	}
+
+	return 0;
+}
+
+static int sy6045s_restore_saved_regs(struct sy6045s_priv *priv,
+				      const u32 *saved)
+{
+	static const u8 regs[] = { 0x03, 0x06, 0x07, 0x08, 0x09, 0x22 };
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		regmap_write(priv->regmap, regs[i], saved[i]);
+	}
+
+	return 0;
+}
+
 static int sy6045s_apply_settings(struct sy6045s_priv *priv,
 				  const u8 *data, size_t size)
 {
 	unsigned int line_num = 0;
+	u32 saved_regs[6];
+
+	mutex_lock(&priv->io_mutex);
+
+	sy6045s_save_regs(priv, saved_regs);
 
 	while (size > 0) {
 		unsigned int i2c_addr, reg_addr, val;
 		char cmd;
 		int consumed;
 
+		if (size == 0)
+			break;
+
 		line_num++;
 
-		/* skip whitespace and comments */
 		while (size > 0 && (*data == ' ' || *data == '\t'))
 			data++, size--;
-
-		/* skip newlines */
 		while (size > 0 && (*data == '\n' || *data == '\r'))
 			data++, size--;
 
 		if (size == 0)
 			break;
 
-		/* skip comment lines */
 		if (*data == '#') {
 			while (size > 0 && *data != '\n' && *data != '\r')
 				data++, size--;
 			continue;
 		}
 
-		/* parse "w <i2c_addr> <reg> <val> [<val2> ...]" */
 		if (sscanf(data, " %c %x %x %x%n",
 			   &cmd, &i2c_addr, &reg_addr, &val, &consumed) < 4) {
+			mutex_unlock(&priv->io_mutex);
 			dev_err(&priv->i2c->dev,
 				"Error parsing settings at line %d\n", line_num);
 			return -EINVAL;
 		}
 
 		if (cmd != 'w' && cmd != 'r') {
+			mutex_unlock(&priv->io_mutex);
 			dev_err(&priv->i2c->dev,
-				"Unknown command '%c' at line %d\n", cmd, line_num);
+				"Unknown command '%c' at line %d\n",
+				cmd, line_num);
 			return -EINVAL;
 		}
 
 		if (cmd == 'w') {
-			/* verify I2C address matches our chip
-			 * (7-bit addr << 1 with write bit) */
 			unsigned int our_addr = (priv->i2c->addr << 1);
 
 			if (i2c_addr != our_addr) {
+				mutex_unlock(&priv->io_mutex);
 				dev_err(&priv->i2c->dev,
-					"Settings not compatible with amplifier "
-					"(i2c addr mismatch: fw=0x%02x, chip=0x%02x)\n",
+					"Settings not compatible with amplifier: "
+					"fw i2c=0x%02x, chip=0x%02x\n",
 					i2c_addr, our_addr);
 				return -EINVAL;
 			}
 
-			dev_dbg(&priv->i2c->dev,
-				"fw: reg=0x%02x val=0x%02x\n", reg_addr, val);
 			regmap_write(priv->regmap, reg_addr, val);
 
-			/* Check if more bytes follow on the same line */
-			while (consumed < (int)size &&
-			       *data == ' ') {
+			/* handle multi-byte writes (reg_addr increments) */
+			data += consumed;
+			size -= consumed;
+			while (size > 0 && (*data == ' ' || *data == '\t')) {
 				unsigned int extra_val;
+				int nxt;
 
-				consumed++;
 				data++, size--;
-				if (sscanf(data, "%x%n", &extra_val, &extra_val) < 1)
+				if (sscanf(data, "%x%n", &extra_val, &nxt) < 1)
 					break;
-				/* For multi-byte writes, use next reg address */
 				reg_addr++;
-				dev_dbg(&priv->i2c->dev,
-					"fw: reg=0x%02x val=0x%02x\n",
-					reg_addr, extra_val);
 				regmap_write(priv->regmap, reg_addr, extra_val);
-				data += extra_val;
-				size -= extra_val;
-
-				while (size > 0 && (*data == ' ' || *data == '\t'))
-					data++, size--;
+				data += nxt;
+				size -= nxt;
 			}
 		}
 
-		/* advance past this line to next */
 		while (size > 0 && *data != '\n' && *data != '\r')
 			data++, size--;
 	}
 
-	dev_info(&priv->i2c->dev, "loaded %u lines of firmware settings\n",
+	sy6045s_restore_saved_regs(priv, saved_regs);
+
+	mutex_unlock(&priv->io_mutex);
+
+	dev_info(&priv->i2c->dev, "applied %u lines of firmware settings\n",
 		 line_num);
 	return 0;
 }
@@ -428,10 +472,42 @@ static int sy6045s_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
+static int sy6045s_trigger(struct snd_pcm_substream *substream,
+			   int cmd, struct snd_soc_dai *dai)
+{
+	struct snd_soc_component *component = dai->component;
+	struct sy6045s_priv *priv = snd_soc_component_get_drvdata(component);
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		/* Ensure amp is unmuted and active */
+		mutex_lock(&priv->io_mutex);
+		regmap_write(priv->regmap, 0x06, 0x00);
+		regmap_write(priv->regmap, 0x22, 0x00);
+		mutex_unlock(&priv->io_mutex);
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		/* Mute amp */
+		mutex_lock(&priv->io_mutex);
+		regmap_write(priv->regmap, 0x06, 0x08);
+		mutex_unlock(&priv->io_mutex);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_dai_ops sy6045s_dai_ops = {
 	.hw_params   = sy6045s_hw_params,
 	.set_fmt     = sy6045s_set_dai_fmt,
 	.mute_stream = sy6045s_mute_stream,
+	.trigger     = sy6045s_trigger,
 };
 
 static struct snd_soc_dai_driver sy6045s_dai = {
