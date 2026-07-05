@@ -160,9 +160,8 @@
 	 * Matches pastebin: aml-audio-card,widgets/routing */
 	widgets = "Headphone", "Headphones";
 	audio-routing = "Headphones", "Headphone HPOL",
-			"Headphones", "Headphone HPOR";
-
-	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
+			"Headphones", "Headphone HPOR",
+			"TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
 			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
 			"TDM_B Playback", "TDMOUT_B OUT",
