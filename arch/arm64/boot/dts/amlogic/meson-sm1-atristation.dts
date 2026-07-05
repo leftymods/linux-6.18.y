@@ -1282,3 +1282,23 @@
 
 /* Volume potentiometer on SAR ADC channel 0
  * Handled by userspace daemon (atrivolume) via IIO */
+
+/* SPI LED screen (from Yandex Station 2 quasar_led_screen)
+ * On spicc1, connected to FPGA-driven LCD panel.
+ * Disabled by default - enable if hardware present.
+&spicc1 {
+	status = "disabled";
+	pinctrl-0 = <&spicc1_pins>, <&spicc1_ss0_pins>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_LOW>;
+
+	led_screen: led-screen@0 {
+		compatible = "yandex,led-screen";
+		reg = <0>;
+		spi-max-frequency = <4000000>;
+		max-brightness = <200>;
+		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
+		status = "disabled";
+	};
+};
+*/
