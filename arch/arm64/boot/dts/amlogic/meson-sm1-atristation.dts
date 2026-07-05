@@ -40,6 +40,14 @@
 		reg = <0x0 0x0 0x0 0x80000000>;
 	};
 
+	vrtc: rtc {
+		compatible = "amlogic,aml_vrtc";
+		alarm_reg_addr = <0xff8000a8>;
+		timer_e_addr = <0xffd0f188>;
+		init_date = "2015/01/01";
+		status = "okay";
+	};
+
 	emmc_pwrseq: emmc-pwrseq {
 		compatible = "mmc-pwrseq-emmc";
 		reset-gpios = <&gpio BOOT_12 GPIO_ACTIVE_LOW>;
@@ -321,6 +329,23 @@
 		power-gpios = <&gpio GPIOA_1 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio GPIOA_2 GPIO_ACTIVE_HIGH>;
 		status = "disabled";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		status = "okay";
+
+		button-function {
+			label = "function";
+			gpios = <&gpio GPIOX_0 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOICECOMMAND>;
+		};
+
+		button-micmute {
+			label = "micmute";
+			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_MICMUTE>;
+		};
 	};
 
 	/* RGB LED ring - 24 multicolor groups */
@@ -1088,6 +1113,13 @@
 	pinctrl-0 = <&i2c2_sda_z_pins>, <&i2c2_sck_z_pins>;
 	pinctrl-names = "default";
 	clock-frequency = <300000>;
+
+	es8156: es8156@8 {
+		compatible = "everest,es8156";
+		#sound-dai-cells = <0>;
+		reg = <0x08>;
+		status = "okay";
+	};
 
 	tweeter_amp: sy6045s@2a {
 		compatible = "silergy,sy6045s";
