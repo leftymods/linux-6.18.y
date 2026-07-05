@@ -148,9 +148,19 @@
 	sound {
 	compatible = "amlogic,auge-sound-card";
 	model = "ATRISTATION";
-	audio-aux-devs = <&tdmout_b>, <&tdmin_b>, <&dmics>;
+	audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
 	playback_channels = <2>;
 	capture_channels = <4>;
+
+	/* Headphone jack detect (GPIOX_12, active-low)
+	 * Matches pastebin: aml-audio-card,hp-det-gpio = <0x16 0x4d 0x00> */
+	hp-det-gpio = <&gpio GPIOX_12 GPIO_ACTIVE_LOW>;
+
+	/* Headphone widgets/routing
+	 * Matches pastebin: aml-audio-card,widgets/routing */
+	widgets = "Headphone", "Headphones";
+	audio-routing = "Headphones", "Headphone HPOL",
+			"Headphones", "Headphone HPOR";
 
 	audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
@@ -207,6 +217,10 @@
 		};
 
 		codec-2 {
+			sound-dai = <&es8156>;
+		};
+
+		codec-3 {
 			sound-dai = <&feedback_adc>;
 			dai-tdm-slot-rx-mask = <1 1>;
 		};
@@ -311,24 +325,61 @@
 		regulator-always-on;
 	};
 
-	/* Kernel rotary encoder replacing userspace rotary-poll daemon
-	 * Uses GPIOA_0 (periphs offset 49 = Yandex 0x31) + GPIOAO_10 (Yandex 0x0a) */
+	/* SY6045S amplifier 20V supply enable (GPIOX_10)
+	 * Matches pastebin "fixedregulator-20v-amp" */
+	amp_20v: regulator-20v-amp {
+		compatible = "regulator-fixed";
+		regulator-name = "20V_AMPL";
+		regulator-min-microvolt = <20000000>;
+		regulator-max-microvolt = <20000000>;
+		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10
+	 * Matches pastebin "rotary-volume": gpios = <0x16 0x31 0x00 0x15 0x0a 0x00> */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
 			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
 		linux,axis = <KEY_VOLUMEUP>;
 		rotary-encoder,encoding = "gray";
+		rotary-encoder,relative-axis;
 		status = "okay";
 	};
 
-	/* Zigbee radio power/reset control
-	 * GPIOs TBD once hardware schematic confirmed */
+	/* Zigbee radio reset/boot control
+	 * Matches pastebin "zigbee": zb-reset=GPIOX_17, zb-boot=GPIOX_11 */
 	zigbee-control {
 		compatible = "yandex,zigbee-control";
-		power-gpios = <&gpio GPIOA_1 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio GPIOA_2 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
+		boot-gpios = <&gpio GPIOX_11 GPIO_ACTIVE_HIGH>;
 		status = "disabled";
+	};
+
+	/* Bluetooth: gpio_reset=GPIOX_18, gpio_hostwake=GPIOX_19
+	 * (pastebin 0x16 0x53 / 0x16 0x55)
+	 * Note: pastebin listed hostwake at 0x16 0x55 = 85 which exceeds
+	 * the GPIO header range (max GPIOX_19 = 84). Likely a vendor
+	 * expanded-GPIO value; using GPIOX_19 as closest match. */
+	bt-dev {
+		compatible = "amlogic,bt-dev";
+		dev_name = "bt-dev";
+		status = "okay";
+		reset-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
+		hostwake-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
+	};
+
+	/* WiFi: irq=GPIOX_8, power_on=GPIOX_7
+	 * Matches pastebin "aml_wifi": interrupt_pin=0x16 0x49, power_on_pin=0x16 0x48 */
+	wifi {
+		compatible = "amlogic,aml_wifi";
+		dev_name = "aml_wifi";
+		status = "okay";
+		interrupt-gpios = <&gpio GPIOX_8 GPIO_ACTIVE_LOW>;
+		power-on-gpios = <&gpio GPIOX_7 GPIO_ACTIVE_HIGH>;
 	};
 
 	gpio-keys {
@@ -1127,7 +1178,7 @@
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "Tweeters";
 		vddio-supply = <&vcc_3v3>;
-		pvdd-supply = <&main_12v>;
+		pvdd-supply = <&amp_20v>;
 		status = "okay";
 	};
 
@@ -1138,7 +1189,7 @@
 		sound-name-prefix = "Woofer";
 		pbtl-mode;
 		vddio-supply = <&vcc_3v3>;
-		pvdd-supply = <&main_12v>;
+		pvdd-supply = <&amp_20v>;
 		status = "okay";
 	};
 
@@ -1225,18 +1276,6 @@
 	status = "okay";
 	pinctrl-0 = <&pwm_e_pins>;
 	pinctrl-names = "default";
-};
-
-/* GPIOAO_10 as amplifier power control (output-low, matches Yandex gpio_ampl_pwr)
- * Note: same pin used by rotary-encoder input — verify HW schematic for conflict */
-&ao_pinctrl {
-	gpio_ampl_pwr: gpio-ampl-pwr {
-		mux {
-			groups = "GPIOAO_10";
-			function = "gpio_aobus";
-			output-low;
-		};
-	};
 };
 
 /* Volume potentiometer on SAR ADC channel 0
