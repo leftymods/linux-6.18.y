@@ -299,7 +299,7 @@ static int qls_probe(struct spi_device *spi)
 	info->screen_size = SCR_BYTES;
 	info->fbops = &qls_fb_ops;
 	info->pseudo_palette = NULL;
-	info->flags = FBINFO_DEFAULT;
+	info->flags = 0;
 
 	info->var.xres = SCR_WIDTH;
 	info->var.yres = SCR_HEIGHT;
@@ -342,8 +342,6 @@ static int qls_probe(struct spi_device *spi)
 		return ret;
 	}
 	qls->bl = bl;
-	dev_info(&spi->dev, "registered backlight '%s'\n",
-		 bl->props.name);
 
 	/* Show initial test pattern */
 	qls_fill_rect(qls, 0, 0, 1, qls->yres, 1);
