@@ -934,9 +934,10 @@ static int __maybe_unused h5_serdev_resume(struct device *dev)
 static int h5_btrtl_setup(struct h5 *h5)
 {
 	struct btrtl_device_info *btrtl_dev;
+	struct serdev_device *serdev = h5->hu->serdev;
 	struct sk_buff *skb;
 	__le32 baudrate_data;
-	u32 device_baudrate;
+	u32 device_baudrate, max_speed;
 	unsigned int controller_baudrate;
 	bool flow_control;
 	int err;
@@ -951,6 +952,28 @@ static int h5_btrtl_setup(struct h5 *h5)
 	if (err)
 		goto out_free;
 
+	/* Respect DT max-speed property to cap baudrate */
+	if (!of_property_read_u32(serdev->dev.of_node, "max-speed",
+				  &max_speed) && max_speed) {
+		if (controller_baudrate > max_speed) {
+			rtl_dev_info(h5->hu->hdev,
+				     "capping baudrate from %u to %u\n",
+				     controller_baudrate, max_speed);
+			controller_baudrate = max_speed;
+
+			/* recompute device baudrate encoding */
+			switch (max_speed) {
+			case 1500000:
+				device_baudrate = 0x04928002;
+				break;
+			case 115200:
+			default:
+				device_baudrate = 0x0252c014;
+				break;
+			}
+		}
+	}
+
 	baudrate_data = cpu_to_le32(device_baudrate);
 	skb = __hci_cmd_sync(h5->hu->hdev, 0xfc17, sizeof(baudrate_data),
 			     &baudrate_data, HCI_INIT_TIMEOUT);
@@ -961,18 +984,18 @@ static int h5_btrtl_setup(struct h5 *h5)
 	} else {
 		kfree_skb(skb);
 	}
-	/* Give the device some time to set up the new baudrate. */
-	usleep_range(10000, 20000);
 
-	serdev_device_set_baudrate(h5->hu->serdev, controller_baudrate);
-	serdev_device_set_flow_control(h5->hu->serdev, flow_control);
+	/* Longer delay for baudrate switch stability */
+	usleep_range(100000, 200000);
+
+	serdev_device_set_baudrate(serdev, controller_baudrate);
+	serdev_device_set_flow_control(serdev, flow_control);
 
 	if (flow_control)
 		set_bit(H5_HW_FLOW_CONTROL, &h5->flags);
 
 	err = btrtl_download_firmware(h5->hu->hdev, btrtl_dev);
-	/* Give the device some time before the hci-core sends it a reset */
-	usleep_range(10000, 20000);
+	usleep_range(100000, 200000);
 	if (err)
 		goto out_free;
 
