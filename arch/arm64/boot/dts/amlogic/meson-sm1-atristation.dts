@@ -1148,7 +1148,7 @@
 	cs-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_LOW>;
 
 	led_screen: led-screen@0 {
-		compatible = "ya,led_screen", "linux,spidev";
+		compatible = "ya,led_screen";
 		reg = <0>;
 		spi-max-frequency = <4000000>;
 		max-brightness = <200>;

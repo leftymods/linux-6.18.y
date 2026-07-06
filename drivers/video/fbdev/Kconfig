@@ -1808,6 +1808,19 @@ config FB_SSD1307
 	  This driver implements support for the Solomon SSD1307
 	  OLED controller over I2C.
 
+config FB_QUASAR_LED_SCREEN
+	tristate "Quasar LED Screen framebuffer support"
+	depends on FB && SPI
+	depends on GPIOLIB || COMPILE_TEST
+	depends on BACKLIGHT_CLASS_DEVICE
+	select FB_SYSMEM_HELPERS
+	help
+	  Framebuffer driver for the Yandex Station 2 Quasar LED screen,
+	  a 25x16 monochrome display driven by a Gowin FPGA over SPI.
+	  Provides framebuffer and backlight control.
+
+	  If you compile this as a module, it will be called quasar_led_screen.
+
 config FB_SM712
 	tristate "Silicon Motion SM712 framebuffer support"
 	depends on FB && PCI && HAS_IOPORT
