@@ -199,6 +199,9 @@ static const struct fb_ops qls_fb_ops = {
 	.owner        = THIS_MODULE,
 	.fb_open      = qls_fb_open,
 	.fb_release   = qls_fb_release,
+	.fb_read      = fb_sys_read,
+	.fb_write     = fb_sys_write,
+	.fb_mmap      = fb_sys_mmap,
 	.fb_check_var = qls_fb_check_var,
 	.fb_set_par   = qls_fb_set_par,
 	.fb_blank     = qls_fb_blank,
@@ -299,7 +302,7 @@ static int qls_probe(struct spi_device *spi)
 	info->screen_size = SCR_BYTES;
 	info->fbops = &qls_fb_ops;
 	info->pseudo_palette = NULL;
-	info->flags = 0;
+	info->flags = FBINFO_VIRTFB;
 
 	info->var.xres = SCR_WIDTH;
 	info->var.yres = SCR_HEIGHT;
@@ -370,6 +373,7 @@ MODULE_DEVICE_TABLE(of, qls_of_match);
 
 static const struct spi_device_id qls_spi_ids[] = {
 	{ "quasar_led_screen", 0 },
+	{ "ya,led_screen", 0 },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, qls_spi_ids);
