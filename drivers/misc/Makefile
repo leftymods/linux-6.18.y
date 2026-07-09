@@ -76,3 +76,4 @@ obj-y				+= keba/
 obj-y				+= amd-sbi/
 obj-$(CONFIG_MISC_RP1)		+= rp1/
 obj-$(CONFIG_SUNXI_ADDR_MGT)    += sunxi-addr/
+obj-$(CONFIG_ATRI_PCBA_IDS)   += atri_pcba_ids.o

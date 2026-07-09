@@ -1808,18 +1808,31 @@ config FB_SSD1307
 	  This driver implements support for the Solomon SSD1307
 	  OLED controller over I2C.
 
-config FB_QUASAR_LED_SCREEN
-	tristate "Quasar LED Screen framebuffer support"
+config FB_ATRI_LED_PANEL
+	tristate "AtriStation LED Panel framebuffer support"
 	depends on FB && SPI
 	depends on GPIOLIB || COMPILE_TEST
 	depends on BACKLIGHT_CLASS_DEVICE
 	select FB_SYSMEM_HELPERS
 	help
-	  Framebuffer driver for the Yandex Station 2 Quasar LED screen,
-	  a 25x16 monochrome display driven by a Gowin FPGA over SPI.
-	  Provides framebuffer and backlight control.
+	  Framebuffer driver for the AtriStation LED panel (Yandex Station 2
+	  Gowin FPGA-based 25x16/28x16 RGB display). Provides framebuffer,
+	  backlight, touch, virtual GPIO/UART and FPGA firmware update over SPI.
 
-	  If you compile this as a module, it will be called quasar_led_screen.
+	  If you compile this as a module, it will be called atri_led_panel.
+
+config FB_ATRI_LED_RING
+	tristate "AtriStation LED Ring framebuffer support"
+	depends on FB
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on LEDS_CLASS
+	select FB_SYSMEM_HELPERS
+	help
+	  Framebuffer/backlight/trigger driver for the AtriStation 24-LED RGB
+	  ring. Applications can render to /dev/fb* and each LED channel follows
+	  the framebuffer pixel value.
+
+	  If you compile this as a module, it will be called atri_led_ring.
 
 config FB_SM712
 	tristate "Silicon Motion SM712 framebuffer support"

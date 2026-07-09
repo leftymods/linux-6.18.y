@@ -48,6 +48,13 @@
 		status = "okay";
 	};
 
+	pcba_ids: pcba-ids {
+		compatible = "atri,pcba-ids";
+		eeproms = <&pcba_eeprom>;
+		eeprom-names = "mainboard";
+		status = "okay";
+	};
+
 	emmc_pwrseq: emmc-pwrseq {
 		compatible = "mmc-pwrseq-emmc";
 		reset-gpios = <&gpio BOOT_12 GPIO_ACTIVE_LOW>;
@@ -358,27 +365,40 @@
 		status = "disabled";
 	};
 
-	/* Bluetooth: gpio_reset=GPIOX_18, gpio_hostwake=GPIOX_19
-	 * (pastebin 0x16 0x53 / 0x16 0x55)
-	 * Note: pastebin listed hostwake at 0x16 0x55 = 85 which exceeds
-	 * the GPIO header range (max GPIOX_19 = 84). Likely a vendor
-	 * expanded-GPIO value; using GPIOX_19 as closest match. */
+	/* Bluetooth: matches vendor DTB gpio_reset=0x16 0x53,
+	 * gpio_hostwake=0x16 0x55 */
 	bt-dev {
 		compatible = "amlogic,bt-dev";
 		dev_name = "bt-dev";
 		status = "okay";
-		reset-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
-		hostwake-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
+		gpio_reset = <&gpio 0x53 GPIO_ACTIVE_HIGH>;
+		gpio_hostwake = <&gpio 0x55 GPIO_ACTIVE_HIGH>;
 	};
 
-	/* WiFi: irq=GPIOX_8, power_on=GPIOX_7
-	 * Matches pastebin "aml_wifi": interrupt_pin=0x16 0x49, power_on_pin=0x16 0x48 */
+	/* WiFi: matches vendor DTB aml_wifi:
+	 * interrupt_pin=0x16 0x49, power_on_pin=0x16 0x48 */
 	wifi {
 		compatible = "amlogic,aml_wifi";
 		dev_name = "aml_wifi";
 		status = "okay";
-		interrupt-gpios = <&gpio GPIOX_8 GPIO_ACTIVE_LOW>;
-		power-on-gpios = <&gpio GPIOX_7 GPIO_ACTIVE_HIGH>;
+		interrupt_pin = <&gpio 0x49 GPIO_ACTIVE_LOW>;
+		irq_trigger_type = "GPIO_IRQ_LOW";
+		power_on_pin = <&gpio 0x48 GPIO_ACTIVE_HIGH>;
+		pwm_config = <&wifi_pwm_conf>;
+	};
+
+	/* WiFi/BT 32.768kHz PWM config as in vendor DTB */
+	wifi_pwm_conf: wifi-pwm-conf {
+		pwm_channel1_conf {
+			pwms = <&pwm_ef 0 0x774d 0x00>;
+			duty-cycle = <0x3ba6>;
+			times = <0x0a>;
+		};
+		pwm_channel2_conf {
+			pwms = <&pwm_ef 2 0x7724 0x00>;
+			duty-cycle = <0x3b92>;
+			times = <0x0c>;
+		};
 	};
 
 	gpio-keys {
@@ -1147,12 +1167,13 @@
 	num-cs = <1>;
 	cs-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_LOW>;
 
-	led_screen: led-screen@0 {
-		compatible = "ya,led_screen";
+	led_panel: led-panel@0 {
+		compatible = "atri,led-panel", "ya,led-panel";
 		reg = <0>;
 		spi-max-frequency = <4000000>;
 		max-brightness = <200>;
 		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
+		jtag_tck_desc = <0xff634468 0x07>;
 		status = "okay";
 	};
 };
@@ -1220,7 +1241,7 @@
 &gpio_ao {
 };
 
-/* WiFi RTL8822CS SDIO */
+/* WiFi RTL8822CS SDIO (matches vendor caps) */
 &sd_emmc_a {
 	status = "okay";
 	pinctrl-0 = <&sdio_pins>;
@@ -1230,10 +1251,12 @@
 	#size-cells = <0>;
 	bus-width = <4>;
 	cap-sd-highspeed;
+	cap-mmc-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
-	max-frequency = <50000000>;
+	sd-uhs-sdr104;
+	max-frequency = <200000000>;
 	non-removable;
 	disable-wp;
 	keep-power-in-suspend;
@@ -1256,9 +1279,9 @@
 
 	bluetooth: bluetooth {
 		compatible = "realtek,rtl8822cs-bt";
-		enable-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&gpio 0x53 GPIO_ACTIVE_HIGH>;
 		device-wake-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
-		host-wake-gpios = <&gpio GPIOX_19 GPIO_ACTIVE_HIGH>;
+		host-wake-gpios = <&gpio 0x55 GPIO_ACTIVE_HIGH>;
 		max-speed = <1500000>;
 		status = "okay";
 	};

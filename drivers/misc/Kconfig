@@ -662,4 +662,15 @@ source "drivers/misc/keba/Kconfig"
 source "drivers/misc/amd-sbi/Kconfig"
 source "drivers/misc/rp1/Kconfig"
 source "drivers/misc/sunxi-addr/Kconfig"
+
+config ATRI_PCBA_IDS
+	tristate "AtriStation PCBA ID EEPROM parser"
+	depends on I2C && SYSFS
+	help
+	  Parse PCBA identification data from on-board I2C EEPROMs
+	  as used on AtriStation hardware.
+
+	  This driver can be built as a module; the module will be called
+	  atri_pcba_ids.
+
 endmenu
