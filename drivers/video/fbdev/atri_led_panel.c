@@ -742,6 +742,7 @@ static const struct fb_ops fb_ops = {
 	.fb_pan_display = alp_fb_pan_display,
 	.fb_blank = alp_fb_blank,
 	.fb_sync = alp_fb_sync,
+	.fb_mmap = fb_deferred_io_mmap,
 	.fb_destroy = alp_fb_destroy,
 	.fb_read = fb_sys_read,
 	.fb_write = fb_sys_write,
@@ -772,6 +773,7 @@ static int fb_init(struct atri_priv *priv)
 	}
 
 	fbi->screen_base = (char __iomem *)priv->fb_mem;
+	fbi->screen_buffer = priv->fb_mem;
 	fbi->screen_size = fb_len;
 	fbi->fix.smem_len = fb_len;
 	fbi->fix.smem_start = 0;
