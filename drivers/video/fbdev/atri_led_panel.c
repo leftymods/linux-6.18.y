@@ -810,7 +810,8 @@ static void backlight_exit(struct atri_priv *priv)
 }
 
 /* ------------------------------------------------------------------ */
-/* JTAG -- Gowin FPGA programming                                      */
+/* JTAG -- Gowin FPGA programming (reverse engineered from             */
+/*          vendor gowin_led_device.ko for Linux 4.9)                  */
 /* ------------------------------------------------------------------ */
 
 static void jtag_tck_lo(struct atri_priv *priv)
@@ -831,135 +832,379 @@ static void jtag_tck_hi(struct atri_priv *priv)
 		gpiod_set_value(priv->jtag_tck, 1);
 }
 
-static void jtag_write(struct atri_priv *priv, const u8 *data, int len)
+/* Vendor bit-bang delay: ~100 CPU loops per half-period */
+static void jtag_delay(void)
 {
 	int i;
 
-	for (i = 0; i < len; i++) {
-		int bit;
-		for (bit = 7; bit >= 0; bit--) {
-			gpiod_set_value(priv->jtag_tdi, (data[i] >> bit) & 1);
-			jtag_tck_lo(priv);
-			ndelay(50);
-			jtag_tck_hi(priv);
-			ndelay(50);
-		}
+	for (i = 0; i < 100; i++)
+		cpu_relax();
+}
+
+static void jtag_tck_pulse(struct atri_priv *priv)
+{
+	jtag_tck_lo(priv);
+	jtag_delay();
+	jtag_tck_hi(priv);
+	jtag_delay();
+}
+
+static void jtag_write(struct atri_priv *priv, u8 byte, int last)
+{
+	int bit;
+
+	gpiod_set_value(priv->jtag_tms, 0);
+
+	for (bit = 0; bit < 8; bit++) {
+		if (bit == 7)
+			gpiod_set_value(priv->jtag_tms, last);
+		gpiod_set_value(priv->jtag_tdi, (byte >> bit) & 1);
+		jtag_tck_pulse(priv);
 	}
 }
 
-static void jtag_update_tms(struct atri_priv *priv, u8 tms)
+static void jtag_update_tms(struct atri_priv *priv, int tms)
+{
+	gpiod_set_value(priv->jtag_tms, tms);
+	jtag_tck_pulse(priv);
+}
+
+static void jtag_tap_move(struct atri_priv *priv, u8 from, u8 to)
 {
 	int i;
-	for (i = 7; i >= 0; i--) {
-		gpiod_set_value(priv->jtag_tms, (tms >> i) & 1);
-		jtag_tck_lo(priv);
-		ndelay(50);
-		jtag_tck_hi(priv);
-		ndelay(50);
-	}
-}
 
-static void jtag_tap_move(struct atri_priv *priv, u8 state)
-{
-	switch (state) {
-	case 0: jtag_update_tms(priv, 0x7f); break;
-	case 1: jtag_update_tms(priv, 0x00); break;
-	case 2: jtag_update_tms(priv, 0x03); break;
-	case 3: jtag_update_tms(priv, 0x01); break;
-	case 4: jtag_update_tms(priv, 0x07); break;
-	default: break;
+	if (from == 1 && to == 11) {
+		/* Run-Test/Idle -> Shift-IR */
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else if (from == 1 && to == 12) {
+		/* Shift-IR -> Run-Test/Idle */
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else if (from == 1 && to == 4) {
+		/* Run-Test/Idle -> Shift-DR */
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else if (from == 5 && to == 1) {
+		/* Shift-DR -> Run-Test/Idle */
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else if (from == 1 && to == 1) {
+		/* Idle clocks */
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else if (from == 16 && to == 1) {
+		/* Test-Logic-Reset -> Run-Test/Idle */
+		for (i = 0; i < 8; i++)
+			jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	} else {
+		dev_err(priv->dev, "unsupported JTAG state move %u->%u\n", from, to);
 	}
 }
 
 static void jtag_write_inst(struct atri_priv *priv, u8 inst)
 {
-	jtag_tap_move(priv, 3);
-	jtag_write(priv, &inst, 1);
-	jtag_tap_move(priv, 2);
+	jtag_tap_move(priv, 1, 11);
+	jtag_write(priv, inst, 1);
+	jtag_tap_move(priv, 1, 12);
+	jtag_tap_move(priv, 1, 1);
+	jtag_tap_move(priv, 1, 1);
+	jtag_tap_move(priv, 1, 1);
 }
 
-static int jtag_read_code(struct atri_priv *priv, u32 *code)
+static int jtag_read_code(struct atri_priv *priv, u8 inst, u32 *code)
 {
 	u32 val = 0;
 	int i, bit;
 
-	jtag_tap_move(priv, 4);
-	jtag_tap_move(priv, 1);
+	jtag_write_inst(priv, inst);
+	jtag_tap_move(priv, 1, 4);
+
+	gpiod_set_value(priv->jtag_tms, 0);
+	jtag_tck_pulse(priv);
 
 	for (i = 0; i < 32; i++) {
+		if (i == 31)
+			gpiod_set_value(priv->jtag_tms, 1);
 		jtag_tck_lo(priv);
-		ndelay(50);
+		jtag_delay();
 		bit = gpiod_get_value(priv->jtag_tdo);
 		val |= bit << i;
 		jtag_tck_hi(priv);
-		ndelay(50);
+		jtag_delay();
 	}
 
-	jtag_tap_move(priv, 2);
+	jtag_tap_move(priv, 5, 1);
 	*code = val;
 	return 0;
 }
 
-static int check_status_code(struct atri_priv *priv)
+static int check_status_code(struct atri_priv *priv, u32 status)
 {
-	u32 idcode;
-	int ret;
+	if (status & BIT(0))
+		dev_err(priv->dev, "Status Code: CRC Error\n");
+	if (status & BIT(1))
+		dev_err(priv->dev, "Status Code: Bad Command\n");
+	if (status & BIT(2))
+		dev_err(priv->dev, "Status Code: ID Verify failed\n");
+	if (status & BIT(3))
+		dev_err(priv->dev, "Status Code: Timeout\n");
+	if (status & BIT(12))
+		dev_err(priv->dev, "Status Code: VLD bit isn't set\n");
+	if (status & BIT(15))
+		dev_err(priv->dev, "Status Code: READY bit isn't set\n");
+	if (status & BIT(16))
+		dev_err(priv->dev, "Status Code: POR bit isn't set\n");
 
-	ret = jtag_read_code(priv, &idcode);
+	status = (status & ~BIT(17)) - 0x19000 - 0x20;
+	return (status != 0) ? -1 : 0;
+}
+
+static int jtag_erase_flash(struct atri_priv *priv)
+{
+	u32 status;
+	unsigned long flags;
+	int ret, i;
+
+	ret = jtag_read_code(priv, 0x41, &status);
 	if (ret)
 		return ret;
 
-	if ((idcode & 0x0fffffff) != 0x0080181b)
-		return -ENODEV;
+	if (check_status_code(priv, status) != 0) {
+		dev_info(priv->dev, "Start erasing the FPGA SRAM\n");
+		dev_info(priv->dev, "     status code = 0x%x\n", status);
 
-	return 0;
-}
+		jtag_write_inst(priv, 0x11);
+		jtag_write_inst(priv, 0x15);
+		jtag_write_inst(priv, 0x05);
+		for (i = 0; i < 4000; i++)
+			jtag_update_tms(priv, 0);
 
-static int __maybe_unused jtag_erase_flash(struct atri_priv *priv)
-{
-	jtag_write_inst(priv, 0x05);
-	usleep_range(1000, 2000);
-	jtag_write_inst(priv, 0x04);
-	usleep_range(1000, 2000);
+		jtag_write_inst(priv, 0x09);
+		jtag_write_inst(priv, 0x02);
+		jtag_write_inst(priv, 0x3a);
+		jtag_write_inst(priv, 0x02);
+		for (i = 0; i < 1000; i++)
+			jtag_update_tms(priv, 0);
 
-	jtag_tap_move(priv, 4);
-	usleep_range(1000, 2000);
-
-	return 0;
-}
-
-static int jtag_prog_fpga(struct atri_priv *priv, const struct firmware *fw)
-{
-	const u8 *data = fw->data;
-	int len = fw->size;
-	int offset = 0;
-
-	jtag_tap_move(priv, 0);
-	msleep(10);
-
-	jtag_write_inst(priv, 0x06);
-	msleep(1);
-
-	while (len > 0) {
-		int chunk = min(len, 256);
-		jtag_write(priv, data + offset, chunk);
-		offset += chunk;
-		len -= chunk;
+		ret = jtag_read_code(priv, 0x41, &status);
+		if (ret)
+			return ret;
+		if (check_status_code(priv, status) != 0) {
+			dev_err(priv->dev, "Erasing the FPGA SRAM was failed\n");
+			dev_err(priv->dev, "                status code = 0x%x\n", status);
+			return -EIO;
+		}
+		dev_info(priv->dev, "Erasing the FPGA SRAM was successful\n");
+	} else {
+		dev_info(priv->dev, "FPGA SRAM doesn't need to be erased\n");
 	}
 
+	dev_info(priv->dev, "Start erasing the FPGA FLASH\n");
+
+	local_irq_save(flags);
+
+	jtag_write_inst(priv, 0x11);
+	jtag_write_inst(priv, 0x15);
+	jtag_write_inst(priv, 0x75);
+
+	for (i = 0; i < 6; i++)
+		jtag_update_tms(priv, 0);
+
+	jtag_tap_move(priv, 1, 4);
+
+	for (i = 0; i < 6; i++)
+		jtag_update_tms(priv, 0);
+
+	jtag_update_tms(priv, 0);
+	for (i = 0; i < 16; i++) {
+		jtag_update_tms(priv, 1);
+		jtag_update_tms(priv, 0);
+		jtag_update_tms(priv, 0);
+	}
+	jtag_update_tms(priv, 1);
+	jtag_update_tms(priv, 0);
+	jtag_update_tms(priv, 1);
+	jtag_update_tms(priv, 1);
+	jtag_update_tms(priv, 0);
+	jtag_update_tms(priv, 0);
+	jtag_update_tms(priv, 0);
+	jtag_update_tms(priv, 0);
+
+	for (i = 0x400e2; i != 0; i--) {
+		jtag_tck_pulse(priv);
+		jtag_tck_pulse(priv);
+	}
+
+	jtag_write_inst(priv, 0x3a);
 	jtag_write_inst(priv, 0x02);
-	msleep(100);
 
-	if (check_status_code(priv))
+	local_irq_restore(flags);
+
+	msleep(200);
+
+	jtag_write_inst(priv, 0x11);
+	jtag_write_inst(priv, 0x3c);
+	jtag_write_inst(priv, 0x02);
+
+	msleep(200);
+
+	ret = jtag_read_code(priv, 0x41, &status);
+	if (ret)
+		return ret;
+	if (check_status_code(priv, status) == 0) {
+		dev_info(priv->dev, "Erasing the FPGA FLASH was successful\n");
+		return 0;
+	}
+	dev_err(priv->dev, "Erasing the FPGA FLASH was failed\n");
+	return -EIO;
+}
+
+static int jtag_prog_fpga(struct atri_priv *priv, const struct firmware *fw,
+			  u16 expected_user_code)
+{
+	size_t prog_size = fw->size;
+	u8 *buf;
+	u32 id, user;
+	size_t blocks, block;
+	unsigned long flags;
+	int ret, i;
+
+	dev_info(priv->dev, "Start FPGA programming\n");
+
+	if (fw->data[0] != 0)
+		prog_size = fw->size + 0x100 - fw->data[0];
+	dev_info(priv->dev, "fw size = %zu\n", prog_size);
+
+	ret = jtag_read_code(priv, 0x11, &id);
+	if (ret)
+		return ret;
+	dev_info(priv->dev, "FPGA ID = 0x%08x\n", id);
+
+	buf = kmalloc(prog_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	memset(buf, 0xff, prog_size);
+	memcpy(buf, fw->data, fw->size);
+	buf[0] = 0x47;
+	buf[1] = 0x57;
+	buf[2] = 0x31;
+	buf[3] = 0x4e;
+
+	jtag_write_inst(priv, 0x15);
+	for (i = 0; i < 4000; i++)
+		jtag_update_tms(priv, 0);
+
+	blocks = prog_size >> 8;
+
+	for (block = 0; block < blocks; block++) {
+		u8 *block_ptr = &buf[block * 256];
+
+		if (block != 0) {
+			for (i = 0; i < 16; i++)
+				jtag_tck_pulse(priv);
+		}
+
+		local_irq_save(flags);
+
+		jtag_write_inst(priv, 0x15);
+		jtag_write_inst(priv, 0x71);
+
+		jtag_tap_move(priv, 1, 4);
+		gpiod_set_value(priv->jtag_tdi, 0);
+		for (i = 0; i < 6; i++)
+			jtag_tck_pulse(priv);
+
+		for (i = 0; i < 26; i++) {
+			gpiod_set_value(priv->jtag_tdi, (block >> i) & 1);
+			if (i == 25)
+				gpiod_set_value(priv->jtag_tms, 1);
+			jtag_tck_pulse(priv);
+			jtag_tck_pulse(priv);
+		}
+		jtag_tap_move(priv, 5, 1);
+
+		for (i = 0; i < 360; i++) {
+			jtag_tck_pulse(priv);
+			jtag_tck_pulse(priv);
+		}
+
+		for (i = 0; i < 64; i++) {
+			u8 *p = block_ptr + i * 4;
+			int b;
+
+			jtag_tap_move(priv, 1, 4);
+			for (b = 0; b < 4; b++) {
+				int last = (b == 3);
+
+				jtag_write(priv, p[3 - b], last);
+			}
+			jtag_tap_move(priv, 5, 1);
+			jtag_tap_move(priv, 1, 1);
+			jtag_tap_move(priv, 1, 1);
+			jtag_tap_move(priv, 1, 1);
+			jtag_tap_move(priv, 1, 1);
+
+			for (b = 0; b < 24; b++) {
+				jtag_tck_pulse(priv);
+				jtag_tck_pulse(priv);
+			}
+		}
+
+		for (i = 0; i < 14; i++) {
+			jtag_tck_pulse(priv);
+			jtag_tck_pulse(priv);
+		}
+
+		local_irq_restore(flags);
+	}
+
+	jtag_write_inst(priv, 0x3a);
+	jtag_write_inst(priv, 0x02);
+	for (i = 0; i < 300; i++)
+		jtag_update_tms(priv, 0);
+
+	jtag_write_inst(priv, 0x11);
+	jtag_write_inst(priv, 0x3c);
+	jtag_write_inst(priv, 0x02);
+	msleep(300);
+
+	kfree(buf);
+
+	ret = jtag_read_code(priv, 0x13, &user);
+	if (ret)
+		return ret;
+	dev_info(priv->dev, "user_code: expected = %u; actual = %u\n",
+		 expected_user_code, user);
+	if (user != expected_user_code) {
+		dev_err(priv->dev, "Failed to programming FPGA\n");
 		return -EIO;
-
-	jtag_tap_move(priv, 4);
+	}
+	dev_info(priv->dev, "FPGA has been successfully programmed\n");
 	return 0;
 }
 
 /* ------------------------------------------------------------------ */
 /* Firmware update                                                     */
 /* ------------------------------------------------------------------ */
+
+struct alp_fw_meta {
+	u8	fw_version;
+	u16	binary_crc16;
+	u16	user_flash_crc16;
+	u16	expected_user_code;
+	u8	force_upd;
+};
 
 static void fpga_hw_reset(struct atri_priv *priv)
 {
@@ -1002,52 +1247,137 @@ static int select_spi_mode(struct atri_priv *priv)
 }
 
 static int alp_update_firmware(struct atri_priv *priv,
-			      const struct firmware *fw)
+			      const struct firmware *fw,
+			      u16 expected_user_code)
 {
-	int ret;
+	int ret, erase_attempt, prog_attempt, reset_attempt;
 
-	ret = select_jtag_mode(priv);
-	if (ret)
-		return ret;
-
-	fpga_hw_reset(priv);
-	ret = jtag_prog_fpga(priv, fw);
-
-	select_spi_mode(priv);
+	for (reset_attempt = 0; reset_attempt < 2; reset_attempt++) {
+		for (erase_attempt = 1; erase_attempt <= 4; erase_attempt++) {
+			ret = jtag_erase_flash(priv);
+			if (ret == 0)
+				goto erased;
+			msleep(200);
+		}
+		dev_info(priv->dev, "erase flash attempts = %d\n", erase_attempt);
+		fpga_hw_reset(priv);
+	}
+	dev_info(priv->dev, "FPGA reset attempts = %d\n", reset_attempt);
 	return ret;
+
+erased:
+	dev_info(priv->dev, "erase flash attempts = %d\n", erase_attempt);
+
+	for (prog_attempt = 1; prog_attempt <= 4; prog_attempt++) {
+		ret = jtag_prog_fpga(priv, fw, expected_user_code);
+		if (ret == 0)
+			return 0;
+		msleep(200);
+	}
+	dev_info(priv->dev, "FPGA program attempts = %d\n", prog_attempt);
+	return ret;
+}
+
+static void alp_parse_manifest(const char *data, struct alp_fw_meta *meta)
+{
+	const char *p, *eq;
+
+	memset(meta, 0, sizeof(*meta));
+
+	for (p = data; p && *p; p = strchr(p, '\n')) {
+		if (*p == '\n')
+			p++;
+		eq = strchr(p, '=');
+		if (!eq)
+			continue;
+		while (*eq == ' ' || *eq == '=')
+			eq++;
+		while (*eq == ' ')
+			eq++;
+
+		if (!strncmp(p, "fw_version", 10))
+			meta->fw_version = (u8)simple_strtoul(eq, NULL, 0);
+		else if (!strncmp(p, "crc16", 5))
+			meta->binary_crc16 = (u16)simple_strtoul(eq, NULL, 0);
+		else if (!strncmp(p, "user_code", 9))
+			meta->user_flash_crc16 = (u16)simple_strtoul(eq, NULL, 0);
+		else if (!strncmp(p, "uf_crc16", 8))
+			meta->expected_user_code = (u16)simple_strtoul(eq, NULL, 0);
+		else if (!strncmp(p, "force_upd", 9))
+			meta->force_upd = (u8)simple_strtoul(eq, NULL, 0);
+	}
 }
 
 static int alp_handle_firmware_update(struct atri_priv *priv)
 {
-	const char *fw_name;
-	const struct firmware *fw;
+	const char *manifest_name, *bin_name;
+	const struct firmware *manifest, *fw;
+	struct alp_fw_meta meta = {};
+	u16 actual_crc;
 	int ret;
 
-	if (of_device_is_compatible(priv->dev->of_node, "atri,led-panel")) {
-		fw_name = "yandex_led_panel.bin";
+	if (of_device_is_compatible(priv->dev->of_node, "atri,led-panel") ||
+	    of_device_is_compatible(priv->dev->of_node, "ya,led-panel")) {
+		manifest_name = "yandex_led_panel.bin.manifest";
+		bin_name = "yandex_led_panel.bin";
 	} else {
-		fw_name = "yandex_led_screen_fpga.bin";
+		manifest_name = "yandex_led_screen_fpga.bin.manifest";
+		bin_name = "yandex_led_screen_fpga.bin";
 	}
 
-	ret = request_firmware(&fw, fw_name, priv->dev);
+	ret = request_firmware(&manifest, manifest_name, priv->dev);
 	if (ret) {
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
-			 "fw not found: %s", fw_name);
-		return ret;
+			 "manifest not found: %s", manifest_name);
+		return 0;
+	}
+
+	alp_parse_manifest(manifest->data, &meta);
+	release_firmware(manifest);
+
+	if (!meta.binary_crc16 && !meta.fw_version) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "manifest parse failed: %s", manifest_name);
+		return 0;
+	}
+
+	ret = request_firmware(&fw, bin_name, priv->dev);
+	if (ret) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "fw not found: %s", bin_name);
+		return 0;
+	}
+
+	actual_crc = crc_itu_t(0, fw->data, fw->size) & 0xffff;
+	if (actual_crc != meta.binary_crc16) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "crc16 mismatch: expected %u, actual %u",
+			 meta.binary_crc16, actual_crc);
+		release_firmware(fw);
+		return 0;
 	}
 
 	snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
-		 "flashing %s (%zu bytes)", fw_name, fw->size);
+		 "flashing %s (%zu bytes, crc ok)", bin_name, fw->size);
 
-	ret = alp_update_firmware(priv, fw);
+	ret = select_jtag_mode(priv);
+	if (ret) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "jtag mode failed: %d", ret);
+		release_firmware(fw);
+		return ret;
+	}
+
+	ret = alp_update_firmware(priv, fw, meta.expected_user_code);
 	release_firmware(fw);
+	select_spi_mode(priv);
 
 	if (ret) {
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 			 "flash failed: %d", ret);
 	} else {
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
-			 "ok: %s programmed", fw_name);
+			 "ok: %s programmed", bin_name);
 	}
 
 	return ret;
