@@ -674,11 +674,6 @@ static int alp_fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fbi
 	return 0;
 }
 
-static int alp_fb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
-{
-	return remap_vmalloc_range(vma, fbi->screen_buffer, vma->vm_pgoff);
-}
-
 static int alp_fb_sync(struct fb_info *fbi)
 {
 	struct atri_priv *priv = (struct atri_priv *)fbi->par;
@@ -708,9 +703,22 @@ static int alp_fb_sync(struct fb_info *fbi)
 	return ret;
 }
 
+static void alp_fb_deferred_io(struct fb_info *fbi,
+			       struct list_head *pagelist)
+{
+	alp_fb_sync(fbi);
+}
+
+static struct fb_deferred_io alp_fb_defio = {
+	.delay = HZ / 30,
+	.deferred_io = alp_fb_deferred_io,
+};
+
 static void alp_fb_destroy(struct fb_info *fbi)
 {
 	struct atri_priv *priv = (struct atri_priv *)fbi->par;
+
+	fb_deferred_io_cleanup(fbi);
 
 	if (priv->fb_mem) {
 		vfree(priv->fb_mem);
@@ -725,7 +733,6 @@ static const struct fb_ops fb_ops = {
 	.fb_check_var = alp_fb_check_var,
 	.fb_set_par = alp_fb_set_par,
 	.fb_pan_display = alp_fb_pan_display,
-	.fb_mmap = alp_fb_mmap,
 	.fb_sync = alp_fb_sync,
 	.fb_destroy = alp_fb_destroy,
 	.fb_read = fb_sys_read,
@@ -778,6 +785,13 @@ static int fb_init(struct atri_priv *priv)
 	fbi->pseudo_palette = priv->pseudo_palette;
 	fbi->flags = FBINFO_VIRTFB;
 	fbi->fbops = &fb_ops;
+	fbi->fbdefio = &alp_fb_defio;
+
+	ret = fb_deferred_io_init(fbi);
+	if (ret) {
+		dev_err(dev, "fb_deferred_io_init failed: %d\n", ret);
+		goto err_mem;
+	}
 
 	ret = register_framebuffer(fbi);
 	if (ret) {
