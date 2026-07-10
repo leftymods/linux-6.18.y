@@ -35,6 +35,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/string.h>
 
 /* CRC-ITU-T V.41 (x^16 + x^12 + x^5 + 1, poly 0x1021) - embedded so we
  * don't depend on CONFIG_CRC_ITU_T being built-in.
@@ -194,7 +195,11 @@ struct atri_priv {
 	u8 touch_irq_number;
 
 	/* Firmware status */
-	char fw_upd_status[40];
+	char fw_upd_status[64];
+
+	/* Subsystem registration flags for safe teardown */
+	bool tty_registered;
+	bool touch_input_registered;
 
 	/* Lock */
 	struct mutex lock;
@@ -491,11 +496,10 @@ static int uart_init(struct atri_priv *priv)
 	ret = tty_register_driver(priv->tty_drv);
 	if (ret) {
 		dev_err(dev, "tty_register_driver failed: %d\n", ret);
-		tty_driver_kref_put(priv->tty_drv);
-		tty_port_destroy(&priv->tty_port);
 		return ret;
 	}
 
+	priv->tty_registered = true;
 	timer_setup(&priv->uart_timer, alp_uart_poll, 0);
 	mod_timer(&priv->uart_timer, jiffies + HZ / 10);
 
@@ -505,12 +509,19 @@ static int uart_init(struct atri_priv *priv)
 
 static void uart_exit(struct atri_priv *priv)
 {
-	timer_delete_sync(&priv->uart_timer);
-	flush_work(&priv->uart_rx_work);
-	tty_unregister_driver(priv->tty_drv);
-	tty_driver_kref_put(priv->tty_drv);
+	if (!IS_ERR_OR_NULL(priv->tty_drv) && priv->tty_registered) {
+		timer_delete_sync(&priv->uart_timer);
+		flush_work(&priv->uart_rx_work);
+		tty_unregister_driver(priv->tty_drv);
+		priv->tty_registered = false;
+	}
+
+	if (!IS_ERR_OR_NULL(priv->tty_drv)) {
+		tty_driver_kref_put(priv->tty_drv);
+		priv->tty_drv = NULL;
+	}
+
 	tty_port_destroy(&priv->tty_port);
-	tty_driver_kref_put(priv->tty_drv);
 }
 
 /* ------------------------------------------------------------------ */
@@ -574,10 +585,9 @@ static int init_touch(struct atri_priv *priv)
 	INIT_WORK(&priv->touch_work, touch_work);
 
 	ret = input_register_device(priv->touch_dev);
-	if (ret) {
-		destroy_workqueue(priv->touch_wq);
+	if (ret)
 		return ret;
-	}
+	priv->touch_input_registered = true;
 
 	if (priv->irq_gpio) {
 		int irq = gpiod_to_irq(priv->irq_gpio);
@@ -587,10 +597,8 @@ static int init_touch(struct atri_priv *priv)
 							IRQF_TRIGGER_FALLING |
 							IRQF_ONESHOT,
 							ATRI_DRV_NAME, priv);
-			if (ret) {
-				destroy_workqueue(priv->touch_wq);
+			if (ret)
 				return ret;
-			}
 			priv->touch_irq_number = irq;
 		}
 	}
@@ -602,11 +610,16 @@ static void deinit_touch(struct atri_priv *priv)
 {
 	if (priv->touch_irq_number)
 		devm_free_irq(priv->dev, priv->touch_irq_number, priv);
-	if (priv->touch_dev)
+
+	if (priv->touch_input_registered && priv->touch_dev) {
 		input_unregister_device(priv->touch_dev);
+		priv->touch_input_registered = false;
+	}
+
 	if (priv->touch_wq) {
 		flush_work(&priv->touch_work);
 		destroy_workqueue(priv->touch_wq);
+		priv->touch_wq = NULL;
 	}
 }
 
@@ -781,7 +794,7 @@ static int fb_init(struct atri_priv *priv)
 	fbi->fix.visual = FB_VISUAL_PSEUDOCOLOR;
 	fbi->fix.line_length = priv->width;
 	fbi->fix.accel = FB_ACCEL_NONE;
-	snprintf(fbi->fix.id, sizeof(fbi->fix.id), ATRI_FB_NAME);
+	strscpy(fbi->fix.id, ATRI_FB_NAME, sizeof(fbi->fix.id));
 
 	fbi->var.xres = priv->width;
 	fbi->var.yres = priv->height;
@@ -813,6 +826,8 @@ static int fb_init(struct atri_priv *priv)
 	return 0;
 
 err_mem:
+	if (fbi->fbdefio_state)
+		fb_deferred_io_cleanup(fbi);
 	vfree(priv->fb_mem);
 err_fb:
 	framebuffer_release(fbi);
@@ -1306,15 +1321,16 @@ static int select_jtag_mode(struct atri_priv *priv)
 
 static int select_spi_mode(struct atri_priv *priv)
 {
+	int ret = 0;
+
 	if (priv->jtag_sel)
 		gpiod_set_value(priv->jtag_sel, 1);
 
-	if (priv->pinctrl_default) {
-		return pinctrl_select_state(priv->pinctrl, priv->pinctrl_default);
-	}
+	if (priv->pinctrl_default)
+		ret = pinctrl_select_state(priv->pinctrl, priv->pinctrl_default);
 
 	priv->jtag_mode = false;
-	return 0;
+	return ret;
 }
 
 static int alp_update_firmware(struct atri_priv *priv,
@@ -1919,7 +1935,7 @@ static int probe(struct spi_device *spi)
 
 	ret = sysfs_create_groups(&dev->kobj, alp_attr_groups);
 	if (ret)
-		goto err_touch;
+		goto err_sysfs;
 
 	/* Firmware update */
 	alp_handle_firmware_update(priv);
@@ -1927,7 +1943,8 @@ static int probe(struct spi_device *spi)
 	dev_info(dev, "led panel probed: %dx%d\n", priv->width, priv->height);
 	return 0;
 
-err_touch:
+err_sysfs:
+	sysfs_remove_groups(&dev->kobj, alp_attr_groups);
 	deinit_touch(priv);
 err_uart:
 	uart_exit(priv);
