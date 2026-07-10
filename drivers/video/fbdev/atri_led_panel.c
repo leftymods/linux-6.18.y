@@ -714,6 +714,13 @@ static struct fb_deferred_io alp_fb_defio = {
 	.deferred_io = alp_fb_deferred_io,
 };
 
+static int alp_fb_blank(int blank, struct fb_info *fbi)
+{
+	if (blank == FB_BLANK_UNBLANK)
+		return alp_fb_sync(fbi);
+	return 0;
+}
+
 static void alp_fb_destroy(struct fb_info *fbi)
 {
 	struct atri_priv *priv = (struct atri_priv *)fbi->par;
@@ -733,6 +740,7 @@ static const struct fb_ops fb_ops = {
 	.fb_check_var = alp_fb_check_var,
 	.fb_set_par = alp_fb_set_par,
 	.fb_pan_display = alp_fb_pan_display,
+	.fb_blank = alp_fb_blank,
 	.fb_sync = alp_fb_sync,
 	.fb_destroy = alp_fb_destroy,
 	.fb_read = fb_sys_read,
