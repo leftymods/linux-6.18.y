@@ -1396,9 +1396,18 @@ static int alp_handle_firmware_update(struct atri_priv *priv)
 
 	ret = request_firmware(&manifest, manifest_name, priv->dev);
 	if (ret) {
-		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
-			 "manifest not found: %s", manifest_name);
-		return 0;
+		/* Fallback for panels that ship with the screen FPGA firmware */
+		if (of_device_is_compatible(priv->dev->of_node, "atri,led-panel") ||
+		    of_device_is_compatible(priv->dev->of_node, "ya,led-panel")) {
+			manifest_name = "yandex_led_screen_fpga.bin.manifest";
+			bin_name = "yandex_led_screen_fpga.bin";
+			ret = request_firmware(&manifest, manifest_name, priv->dev);
+		}
+		if (ret) {
+			snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+				 "manifest not found: %s", manifest_name);
+			return 0;
+		}
 	}
 
 	alp_parse_manifest(manifest->data, &meta);
