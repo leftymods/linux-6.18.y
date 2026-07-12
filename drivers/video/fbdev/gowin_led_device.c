@@ -170,7 +170,7 @@ static int lp_write(struct gowin_priv *priv, const u8 *data, int len)
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
 	if (ret)
-		dev_dbg(priv->dev, "spi_write(%d) failed: %d\n", len, ret);
+		dev_err(priv->dev, "spi_write(%d) failed: %d\n", len, ret);
 	return ret;
 }
 
@@ -194,7 +194,7 @@ static int get_lp_status(struct gowin_priv *priv, u8 *status_buf)
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
 	if (ret)
-		dev_dbg(priv->dev, "get_lp_status failed: %d\n", ret);
+		dev_err(priv->dev, "get_lp_status failed: %d\n", ret);
 	return ret;
 }
 
@@ -203,7 +203,7 @@ static int show_pic_app_cmd(struct gowin_priv *priv)
 	u8 buf[3] = { CMD_SHOW_PIC, 0x00, 0x00 };
 	int ret = lp_write(priv, buf, 3);
 	if (ret)
-		dev_dbg(priv->dev, "show_pic failed: %d\n", ret);
+		dev_err(priv->dev, "show_pic failed: %d\n", ret);
 	return ret;
 }
 
@@ -212,7 +212,7 @@ static int set_brightness_app_cmd(struct gowin_priv *priv, unsigned int val)
 	u8 buf[3] = { CMD_SET_BRIGHTNESS, val & 0xff, (val >> 8) & 0xff };
 	int ret = lp_write(priv, buf, 3);
 	if (ret)
-		dev_dbg(priv->dev, "set_brightness(%u) failed: %d\n", val, ret);
+		dev_err(priv->dev, "set_brightness(%u) failed: %d\n", val, ret);
 	return ret;
 }
 
@@ -399,12 +399,16 @@ static ssize_t lp_uart_write(struct tty_struct *tty, const u8 *buf,
 {
 	struct gowin_priv *priv = container_of(tty->port, struct gowin_priv,
 					       tty_port);
+	int ret;
 
 	if (count > GOWIN_TTY_BUF_SIZE)
 		count = GOWIN_TTY_BUF_SIZE;
 
-	if (uart_send_data_app_cmd(priv, buf, count))
-		return 0;
+	ret = uart_send_data_app_cmd(priv, buf, count);
+	if (ret) {
+		dev_dbg(priv->dev, "uart write failed: %d\n", ret);
+		return ret;
+	}
 
 	return count;
 }
@@ -678,7 +682,13 @@ static int lp_fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fbi)
 
 static int lp_fb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
 {
-	return remap_vmalloc_range(vma, fbi->screen_buffer, vma->vm_pgoff);
+	struct gowin_priv *priv = (struct gowin_priv *)fbi->par;
+	int ret;
+
+	ret = remap_vmalloc_range(vma, fbi->screen_buffer, vma->vm_pgoff);
+	if (ret)
+		dev_err(priv->dev, "fb mmap failed: %d\n", ret);
+	return ret;
 }
 
 static int lp_fb_sync(struct fb_info *fbi)
@@ -917,7 +927,9 @@ static void jtag_tap_move(struct gowin_priv *priv, u8 state)
 	case 2: jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
 	case 3: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
 	case 4: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
-	default: break;
+	default:
+		dev_warn(priv->dev, "jtag: unknown TAP state %u\n", state);
+		break;
 	}
 }
 
@@ -960,14 +972,21 @@ static int check_status_code(struct gowin_priv *priv)
 	if (ret)
 		return ret;
 
-	if ((idcode & 0x0fffffff) != 0x0080181b)
+	if ((idcode & 0x0fffffff) != 0x0080181b) {
+		dev_err(priv->dev, "jtag: unexpected FPGA ID 0x%08x (expected 0x0080181b)\n", idcode);
 		return -ENODEV;
+	}
 
 	return 0;
 }
 
 static int jtag_erase_flash(struct gowin_priv *priv)
 {
+	if (!priv->jtag_tdi || !priv->jtag_tck) {
+		dev_warn(priv->dev, "jtag: cannot erase flash, JTAG not available\n");
+		return -ENODEV;
+	}
+
 	jtag_write_inst(priv, 0x05);
 	usleep_range(1000, 2000);
 	jtag_write_inst(priv, 0x04);
@@ -982,6 +1001,7 @@ static int jtag_erase_flash(struct gowin_priv *priv)
 static int jtag_prog_fpga(struct gowin_priv *priv, const u8 *data, int len)
 {
 	int offset = 0;
+	int remaining = len;
 
 	dev_dbg(priv->dev, "jtag programming %d bytes\n", len);
 
@@ -991,25 +1011,23 @@ static int jtag_prog_fpga(struct gowin_priv *priv, const u8 *data, int len)
 	jtag_write_inst(priv, 0x06);
 	msleep(1);
 
-	while (len > 0) {
-		int chunk = min(len, 256);
+	while (remaining > 0) {
+		int chunk = min(remaining, 256);
 		jtag_write(priv, data + offset, chunk);
 		offset += chunk;
-		len -= chunk;
-		if (offset % 4096 == 0)
-			dev_dbg(priv->dev, "jtag prog %d/%d\n", offset, offset + len);
+		remaining -= chunk;
 	}
 
 	jtag_write_inst(priv, 0x02);
 	msleep(100);
 
 	if (check_status_code(priv)) {
-		dev_err(priv->dev, "jtag: FPGA verification failed\n");
+		dev_err(priv->dev, "jtag: FPGA verification failed after programming %d bytes\n", len);
 		return -EIO;
 	}
 
 	jtag_tap_move(priv, 4);
-	dev_dbg(priv->dev, "jtag programming done\n");
+	dev_dbg(priv->dev, "jtag programming complete (%d bytes)\n", len);
 	return 0;
 }
 
@@ -1020,10 +1038,13 @@ static int jtag_prog_fpga(struct gowin_priv *priv, const u8 *data, int len)
 static void fpga_hw_reset(struct gowin_priv *priv)
 {
 	if (priv->reset_gpio) {
+		dev_dbg(priv->dev, "fpga hardware reset\n");
 		gpiod_set_value(priv->reset_gpio, 0);
 		msleep(10);
 		gpiod_set_value(priv->reset_gpio, 1);
 		msleep(100);
+	} else {
+		dev_warn(priv->dev, "no reset GPIO, skipping FPGA hardware reset\n");
 	}
 }
 
@@ -1033,8 +1054,10 @@ static int select_jtag_mode(struct gowin_priv *priv)
 
 	if (priv->pinctrl_jtag) {
 		ret = pinctrl_select_state(priv->pinctrl, priv->pinctrl_jtag);
-		if (ret)
+		if (ret) {
+			dev_err(priv->dev, "failed to select jtag pinctrl state: %d\n", ret);
 			return ret;
+		}
 	}
 
 	if (priv->jtag_sel)
@@ -1052,8 +1075,10 @@ static int select_spi_mode(struct gowin_priv *priv)
 
 	if (priv->pinctrl_default) {
 		int ret = pinctrl_select_state(priv->pinctrl, priv->pinctrl_default);
-		if (ret)
+		if (ret) {
+			dev_err(priv->dev, "failed to select default pinctrl state: %d\n", ret);
 			return ret;
+		}
 	}
 
 	priv->jtag_mode = false;
@@ -1066,37 +1091,50 @@ static int lp_update_firmware(struct gowin_priv *priv,
 {
 	int ret;
 
-	dev_dbg(priv->dev, "firmware update: switching to JTAG\n");
+	dev_info(priv->dev, "firmware update (%d bytes): switching to JTAG\n", len);
 	ret = select_jtag_mode(priv);
-	if (ret)
+	if (ret) {
+		dev_err(priv->dev, "failed to select JTAG mode: %d\n", ret);
 		return ret;
+	}
 
 	fpga_hw_reset(priv);
 	ret = jtag_prog_fpga(priv, data, len);
+	if (ret) {
+		dev_err(priv->dev, "JTAG programming failed: %d\n", ret);
+		select_spi_mode(priv);
+		return ret;
+	}
 
-	dev_dbg(priv->dev, "firmware update: switching back to SPI\n");
-	select_spi_mode(priv);
-	return ret;
+	dev_info(priv->dev, "firmware update: switching back to SPI\n");
+	ret = select_spi_mode(priv);
+	if (ret)
+		dev_err(priv->dev, "failed to restore SPI mode: %d\n", ret);
+
+	return 0;
 }
 
 static int lp_handle_firmware_update(struct gowin_priv *priv)
 {
 	int ret;
 
-	pr_info("atri-core: programming embedded FPGA bitstream (%zu bytes)\n",
-		fpga_bitstream_len);
+	dev_info(priv->dev, "programming embedded FPGA bitstream (%zu bytes)\n",
+		 fpga_bitstream_len);
 
 	snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 		 "flashing embedded bitstream (%u bytes)", fpga_bitstream_len);
 
 	ret = lp_update_firmware(priv, fpga_bitstream, fpga_bitstream_len);
 
-	if (ret)
+	if (ret) {
+		dev_err(priv->dev, "embedded FPGA bitstream programming FAILED: %d\n", ret);
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
-			 "flash failed: %d", ret);
-	else
+			 "FAILED: %d", ret);
+	} else {
+		dev_info(priv->dev, "embedded FPGA bitstream programmed successfully\n");
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 			 "ok: embedded bitstream programmed");
+	}
 
 	return ret;
 }
@@ -1454,39 +1492,63 @@ static int probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	/* GPIOs */
+/* GPIOs */
 	priv->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->reset_gpio))
-		return PTR_ERR(priv->reset_gpio);
+	if (IS_ERR(priv->reset_gpio)) {
+		ret = PTR_ERR(priv->reset_gpio);
+		dev_err(dev, "failed to get reset GPIO: %d\n", ret);
+		return ret;
+	}
 
 	priv->irq_gpio = devm_gpiod_get_optional(dev, "irq", GPIOD_IN);
-	if (IS_ERR(priv->irq_gpio))
-		return PTR_ERR(priv->irq_gpio);
+	if (IS_ERR(priv->irq_gpio)) {
+		ret = PTR_ERR(priv->irq_gpio);
+		dev_err(dev, "failed to get irq GPIO: %d\n", ret);
+		return ret;
+	}
 
 	priv->jtag_tck = devm_gpiod_get_optional(dev, "jtag_tck", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->jtag_tck))
-		return PTR_ERR(priv->jtag_tck);
+	if (IS_ERR(priv->jtag_tck)) {
+		dev_warn(dev, "jtag_tck GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_tck));
+		priv->jtag_tck = NULL;
+	}
 
 	priv->jtag_tdo = devm_gpiod_get_optional(dev, "jtag_tdo", GPIOD_IN);
-	if (IS_ERR(priv->jtag_tdo))
-		return PTR_ERR(priv->jtag_tdo);
+	if (IS_ERR(priv->jtag_tdo)) {
+		dev_warn(dev, "jtag_tdo GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_tdo));
+		priv->jtag_tdo = NULL;
+	}
 
 	priv->jtag_tdi = devm_gpiod_get_optional(dev, "jtag_tdi", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->jtag_tdi))
-		return PTR_ERR(priv->jtag_tdi);
+	if (IS_ERR(priv->jtag_tdi)) {
+		dev_warn(dev, "jtag_tdi GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_tdi));
+		priv->jtag_tdi = NULL;
+	}
 
 	priv->jtag_tms = devm_gpiod_get_optional(dev, "jtag_tms", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->jtag_tms))
-		return PTR_ERR(priv->jtag_tms);
+	if (IS_ERR(priv->jtag_tms)) {
+		dev_warn(dev, "jtag_tms GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_tms));
+		priv->jtag_tms = NULL;
+	}
 
 	priv->jtag_sel = devm_gpiod_get_optional(dev, "jtag_sel", GPIOD_OUT_HIGH);
-	if (IS_ERR(priv->jtag_sel))
-		return PTR_ERR(priv->jtag_sel);
+	if (IS_ERR(priv->jtag_sel)) {
+		dev_warn(dev, "jtag_sel GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_sel));
+		priv->jtag_sel = NULL;
+	}
 
 	priv->jtag_reconfig = devm_gpiod_get_optional(dev, "jtag_reconfig",
 						       GPIOD_OUT_LOW);
-	if (IS_ERR(priv->jtag_reconfig))
-		return PTR_ERR(priv->jtag_reconfig);
+	if (IS_ERR(priv->jtag_reconfig)) {
+		dev_warn(dev, "jtag_reconfig GPIO unavailable (%ld), proceeding without\n",
+			 PTR_ERR(priv->jtag_reconfig));
+		priv->jtag_reconfig = NULL;
+	}
 
 	/* Optional memory-mapped JTAG TCK descriptor: <addr bit> */
 	{
