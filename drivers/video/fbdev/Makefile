@@ -124,6 +124,7 @@ obj-$(CONFIG_FB_OF)               += offb.o
 obj-$(CONFIG_FB_SSD1307)	  += ssd1307fb.o
 obj-$(CONFIG_FB_ATRI_LED_PANEL)  += atri_led_panel.o
 obj-$(CONFIG_FB_ATRI_LED_RING)   += atri_led_ring.o
+obj-$(CONFIG_FB_GOWIN_LED_PANEL) += gowin_led_device.o
 obj-$(CONFIG_FB_SIMPLE)           += simplefb.o
 
 # the test framebuffer is last

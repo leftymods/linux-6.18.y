@@ -1834,6 +1834,21 @@ config FB_ATRI_LED_RING
 
 	  If you compile this as a module, it will be called atri_led_ring.
 
+config FB_GOWIN_LED_PANEL
+	tristate "Gowin FPGA LED Panel driver"
+	depends on FB
+	depends on GPIOLIB
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on SPI
+	select FB_SYSMEM_HELPERS
+	select TTY
+	help
+	  SPI-driven LED panel/screen with framebuffer, backlight,
+	  virtual GPIO, virtual UART, touch input, JTAG FPGA programming,
+	  and firmware update support.
+
+	  If you compile this as a module, it will be called gowin_led_device.
+
 config FB_SM712
 	tristate "Silicon Motion SM712 framebuffer support"
 	depends on FB && PCI && HAS_IOPORT
