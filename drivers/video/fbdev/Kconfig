@@ -1840,8 +1840,8 @@ config FB_GOWIN_LED_PANEL
 	depends on GPIOLIB
 	depends on BACKLIGHT_CLASS_DEVICE
 	depends on SPI
+	depends on TTY
 	select FB_SYSMEM_HELPERS
-	select TTY
 	help
 	  SPI-driven LED panel/screen with framebuffer, backlight,
 	  virtual GPIO, virtual UART, touch input, JTAG FPGA programming,
