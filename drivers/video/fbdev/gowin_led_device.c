@@ -1373,15 +1373,17 @@ static const struct attribute_group *lp_attr_groups[] = {
 /* ------------------------------------------------------------------ */
 
 static const struct spi_device_id led_device_id[] = {
-	{ "led_panel" },
-	{ "led_screen" },
+	{ "atri,led-panel" },
+	{ "ya,led-panel" },
+	{ "ya,led_screen" },
 	{ }
 };
 
 MODULE_DEVICE_TABLE(spi, led_device_id);
 
 static const struct of_device_id led_device_of_match[] = {
-	{ .compatible = "ya,led_panel", .data = &rev2res_panel },
+	{ .compatible = "atri,led-panel", .data = &rev2res_panel },
+	{ .compatible = "ya,led-panel", .data = &rev2res_panel },
 	{ .compatible = "ya,led_screen", .data = &rev2res_screen },
 	{ }
 };
