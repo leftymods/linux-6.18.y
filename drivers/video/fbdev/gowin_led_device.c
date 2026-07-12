@@ -27,6 +27,7 @@
 #include <linux/sched.h>
 #include <linux/vmalloc.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/io.h>
 #include <linux/sysfs.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -99,6 +100,8 @@ struct gowin_priv {
 	struct gpio_desc *jtag_tms;
 	struct gpio_desc *jtag_sel;
 	struct gpio_desc *jtag_reconfig;
+	void __iomem *jtag_tck_reg;
+	u32 jtag_tck_bit;
 
 	/* pinctrl */
 	struct pinctrl *pinctrl;
@@ -851,42 +854,69 @@ static void backlight_exit(struct gowin_priv *priv)
 /* JTAG -- Gowin FPGA programming                                      */
 /* ------------------------------------------------------------------ */
 
+static void jtag_tck_lo(struct gowin_priv *priv)
+{
+	if (priv->jtag_tck_reg)
+		writel_relaxed(readl_relaxed(priv->jtag_tck_reg) & ~BIT(priv->jtag_tck_bit),
+			       priv->jtag_tck_reg);
+	else if (priv->jtag_tck)
+		gpiod_set_value(priv->jtag_tck, 0);
+}
+
+static void jtag_tck_hi(struct gowin_priv *priv)
+{
+	if (priv->jtag_tck_reg)
+		writel_relaxed(readl_relaxed(priv->jtag_tck_reg) | BIT(priv->jtag_tck_bit),
+			       priv->jtag_tck_reg);
+	else if (priv->jtag_tck)
+		gpiod_set_value(priv->jtag_tck, 1);
+}
+
+static void jtag_delay(void)
+{
+	int i;
+
+	for (i = 0; i < 100; i++)
+		cpu_relax();
+}
+
+static void jtag_tck_pulse(struct gowin_priv *priv)
+{
+	jtag_tck_lo(priv);
+	jtag_delay();
+	jtag_tck_hi(priv);
+	jtag_delay();
+}
+
 static void jtag_write(struct gowin_priv *priv, const u8 *data, int len)
 {
 	int i;
 
 	for (i = 0; i < len; i++) {
 		int bit;
-		for (bit = 7; bit >= 0; bit--) {
-			gpiod_set_value(priv->jtag_tdi, (data[i] >> bit) & 1);
-			gpiod_set_value(priv->jtag_tck, 0);
-			ndelay(50);
-			gpiod_set_value(priv->jtag_tck, 1);
-			ndelay(50);
+		for (bit = 0; bit < 8; bit++) {
+			if (priv->jtag_tdi)
+				gpiod_set_value(priv->jtag_tdi, (data[i] >> bit) & 1);
+			jtag_tck_pulse(priv);
 		}
 	}
 }
 
-static void jtag_update_tms(struct gowin_priv *priv, u8 tms)
+static void jtag_update_tms(struct gowin_priv *priv, int tms)
 {
-	int i;
-	for (i = 7; i >= 0; i--) {
-		gpiod_set_value(priv->jtag_tms, (tms >> i) & 1);
-		gpiod_set_value(priv->jtag_tck, 0);
-		ndelay(50);
-		gpiod_set_value(priv->jtag_tck, 1);
-		ndelay(50);
-	}
+	if (priv->jtag_tms)
+		gpiod_set_value(priv->jtag_tms, tms);
+	jtag_tck_pulse(priv);
 }
 
 static void jtag_tap_move(struct gowin_priv *priv, u8 state)
 {
 	switch (state) {
-	case 0: jtag_update_tms(priv, 0x7f); break;
-	case 1: jtag_update_tms(priv, 0x00); break;
-	case 2: jtag_update_tms(priv, 0x03); break;
-	case 3: jtag_update_tms(priv, 0x01); break;
-	case 4: jtag_update_tms(priv, 0x07); break;
+	case 0: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); break;
+	case 1: jtag_update_tms(priv, 0); break;
+	case 2: jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
+	case 3: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
+	case 4: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
 	default: break;
 	}
 }
@@ -903,18 +933,19 @@ static int jtag_read_code(struct gowin_priv *priv, u32 *code)
 	u32 val = 0;
 	int i, bit;
 
-	jtag_tap_move(priv, 4);
+	jtag_tap_move(priv, 2);
 	jtag_tap_move(priv, 1);
 
 	for (i = 0; i < 32; i++) {
-		gpiod_set_value(priv->jtag_tck, 0);
-		ndelay(50);
-		bit = gpiod_get_value(priv->jtag_tdo);
+		jtag_tck_lo(priv);
+		jtag_delay();
+		bit = priv->jtag_tdo ? gpiod_get_value(priv->jtag_tdo) : 0;
 		val |= bit << i;
-		gpiod_set_value(priv->jtag_tck, 1);
-		ndelay(50);
+		jtag_tck_hi(priv);
+		jtag_delay();
 	}
 
+	jtag_tap_move(priv, 1);
 	jtag_tap_move(priv, 2);
 	*code = val;
 	return 0;
@@ -1456,6 +1487,24 @@ static int probe(struct spi_device *spi)
 						       GPIOD_OUT_LOW);
 	if (IS_ERR(priv->jtag_reconfig))
 		return PTR_ERR(priv->jtag_reconfig);
+
+	/* Optional memory-mapped JTAG TCK descriptor: <addr bit> */
+	{
+		struct device_node *np = dev->of_node;
+		u32 tck_desc[2] = { 0, 0 };
+
+		if (!of_property_read_u32_array(np, "jtag_tck_desc", tck_desc, 2)) {
+			phys_addr_t pa = tck_desc[0];
+
+			priv->jtag_tck_bit = tck_desc[1];
+			priv->jtag_tck_reg = devm_ioremap(dev, pa, sizeof(u32));
+			if (!priv->jtag_tck_reg)
+				dev_warn(dev, "failed to ioremap jtag_tck_desc %pa\n", &pa);
+			else
+				dev_info(dev, "JTAG TCK via MMIO %pa bit %u\n",
+					 &pa, priv->jtag_tck_bit);
+		}
+	}
 
 	/* pinctrl */
 	priv->pinctrl = devm_pinctrl_get(dev);
