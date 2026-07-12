@@ -1174,6 +1174,12 @@
 		max-brightness = <200>;
 		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
 		jtag_tck_desc = <0xff634468 0x07>;
+		jtag_reconfig-gpios = <&gpio BOOT_0 GPIO_ACTIVE_LOW>;
+		jtag_sel-gpios = <&gpio_ao GPIOE_2 GPIO_ACTIVE_HIGH>;
+		jtag_tck-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_HIGH>;
+		jtag_tdi-gpios = <&gpio GPIOH_5 GPIO_ACTIVE_HIGH>;
+		jtag_tdo-gpios = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
+		jtag_tms-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
