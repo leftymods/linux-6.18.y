@@ -24,8 +24,8 @@
 #include <sound/tlv.h>
 
 #define SY6045S_NUM_SUPPLIES 2
-#define SY6045S_MAX_REGISTER 0x1f
-#define SY6045S_RESTORE_REGS_MAX 32
+#define SY6045S_MAX_REGISTER 0xb0
+#define SY6045S_RESTORE_REGS_MAX 192
 
 static const char *const sy6045s_supply_names[SY6045S_NUM_SUPPLIES] = {
 	"vddio",
@@ -86,12 +86,12 @@ static DECLARE_TLV_DB_SCALE(sy6045s_vol_tlv, -12600, 50, 0);
 static DECLARE_TLV_DB_SCALE(sy6045s_ch_vol_tlv, -10050, 50, 0);
 
 static const struct snd_kcontrol_new sy6045s_snd_controls[] = {
-	SOC_DOUBLE_R_TLV("Master Playback Volume",
-			 0x07, 0x07, 0, 0xff, 0, sy6045s_vol_tlv),
-	SOC_SINGLE_R_TLV("Ch1 Playback Volume",
-			 0x08, 0, 0xff, 0, sy6045s_ch_vol_tlv),
-	SOC_SINGLE_R_TLV("Ch2 Playback Volume",
-			 0x09, 0, 0xff, 0, sy6045s_ch_vol_tlv),
+	SOC_SINGLE_TLV("Master Playback Volume",
+		       0x07, 0, 0xff, 0, sy6045s_vol_tlv),
+	SOC_SINGLE_TLV("Ch1 Playback Volume",
+		       0x08, 0, 0xff, 0, sy6045s_ch_vol_tlv),
+	SOC_SINGLE_TLV("Ch2 Playback Volume",
+		       0x09, 0, 0xff, 0, sy6045s_ch_vol_tlv),
 };
 
 static const struct snd_soc_dapm_widget sy6045s_dapm_widgets[] = {
