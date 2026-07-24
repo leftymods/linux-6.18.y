@@ -734,6 +734,8 @@ obj-$(CONFIG_SND_SOC_SSM2602)	+= snd-soc-ssm2602.o
 obj-$(CONFIG_SND_SOC_SSM2602_SPI)	+= snd-soc-ssm2602-spi.o
 obj-$(CONFIG_SND_SOC_SSM2602_I2C)	+= snd-soc-ssm2602-i2c.o
 obj-$(CONFIG_SND_SOC_SSM3515)	+= snd-soc-ssm3515.o
+snd-soc-sy6045s-y := sy6045s.o
+
 obj-$(CONFIG_SND_SOC_SSM4567)	+= snd-soc-ssm4567.o
 obj-$(CONFIG_SND_SOC_SY6045S)	+= snd-soc-sy6045s.o
 obj-$(CONFIG_SND_SOC_STA32X)   += snd-soc-sta32x.o
