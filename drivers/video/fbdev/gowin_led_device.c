@@ -62,6 +62,44 @@
 #define STATUS_CRC_ERROR_S	BIT(2)
 #define STATUS_CRC_ERROR_M	BIT(3)
 
+/* Gowin JTAG instruction opcodes (TN653) */
+#define GWJ_NOOP		0x02
+#define GWJ_ERASE_SRAM		0x05
+#define GWJ_XFER_DONE		0x09
+#define GWJ_READ_IDCODE		0x11
+#define GWJ_READ_USERCODE	0x13
+#define GWJ_CONFIG_ENABLE	0x15
+#define GWJ_CONFIG_DISABLE	0x3a
+#define GWJ_RELOAD		0x3c
+#define GWJ_READ_STATUS		0x41
+#define GWJ_EF_PROGRAM		0x71
+#define GWJ_EFLASH_ERASE	0x75
+
+/*
+ * Expected FPGA: Gowin GW1N-4B. The fs bitstream header stores the
+ * idcode as 0x1100381b; the value shifted out of the TAP masked with
+ * 0x0fffffff is 0x0100381b.
+ */
+#define GOWIN_IDCODE		0x0100381b
+
+/* Gowin STATUS register bits */
+#define GWS_CRC_ERROR		BIT(0)
+#define GWS_BAD_COMMAND		BIT(1)
+#define GWS_ID_VERIFY_FAILED	BIT(2)
+#define GWS_TIMEOUT		BIT(3)
+#define GWS_MEMORY_ERASE	BIT(5)
+#define GWS_PREAMBLE		BIT(6)
+#define GWS_SYSTEM_EDIT_MODE	BIT(7)
+#define GWS_GOWIN_VLD		BIT(12)
+#define GWS_DONE_FINAL		BIT(13)
+#define GWS_SECURITY_FINAL	BIT(14)
+#define GWS_READY		BIT(15)
+#define GWS_POR			BIT(16)
+#define GWS_FLASH_LOCK		BIT(17)
+
+#define GWS_ERROR_MASK		(GWS_CRC_ERROR | GWS_BAD_COMMAND | \
+				 GWS_ID_VERIFY_FAILED | GWS_TIMEOUT)
+
 struct gowin_resolution {
 	int width;
 	int height;
@@ -102,6 +140,11 @@ struct gowin_priv {
 	struct gpio_desc *jtag_reconfig;
 	void __iomem *jtag_tck_reg;
 	u32 jtag_tck_bit;
+	bool jtag_tms_via_cs;
+
+	/* JTAG debug counters */
+	unsigned int erase_attempts;
+	unsigned int prog_attempts;
 
 	/* pinctrl */
 	struct pinctrl *pinctrl;
@@ -167,6 +210,11 @@ static int lp_write(struct gowin_priv *priv, const u8 *data, int len)
 
 	spi_message_init_with_transfers(&m, &t, 1);
 	mutex_lock(&priv->lock);
+	if (priv->jtag_mode) {
+		/* JTAG owns the pins right now; SPI must stay quiet */
+		mutex_unlock(&priv->lock);
+		return -EBUSY;
+	}
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
 	if (ret)
@@ -191,6 +239,10 @@ static int get_lp_status(struct gowin_priv *priv, u8 *status_buf)
 	spi_message_init_with_transfers(&m, &tx, 1);
 	spi_message_add_tail(&rx, &m);
 	mutex_lock(&priv->lock);
+	if (priv->jtag_mode) {
+		mutex_unlock(&priv->lock);
+		return -EBUSY;
+	}
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
 	if (ret)
@@ -267,6 +319,10 @@ static int uart_receive_data(struct gowin_priv *priv,
 	spi_message_init_with_transfers(&m, t, 3);
 
 	mutex_lock(&priv->lock);
+	if (priv->jtag_mode) {
+		mutex_unlock(&priv->lock);
+		return 0;
+	}
 	ret = spi_sync(priv->spi, &m);
 	if (ret) {
 		mutex_unlock(&priv->lock);
@@ -898,136 +954,326 @@ static void jtag_tck_pulse(struct gowin_priv *priv)
 	jtag_delay();
 }
 
-static void jtag_write(struct gowin_priv *priv, const u8 *data, int len)
+static void jtag_set_tms(struct gowin_priv *priv, int val)
 {
-	int i;
-
-	for (i = 0; i < len; i++) {
-		int bit;
-		for (bit = 0; bit < 8; bit++) {
-			if (priv->jtag_tdi)
-				gpiod_set_value(priv->jtag_tdi, (data[i] >> bit) & 1);
-			jtag_tck_pulse(priv);
-		}
-	}
+	if (!priv->jtag_tms)
+		return;
+	/*
+	 * When TMS rides on the SPI CS descriptor the line is flagged
+	 * active-low (cs-gpios); JTAG needs physical levels, hence raw.
+	 */
+	if (priv->jtag_tms_via_cs)
+		gpiod_set_raw_value(priv->jtag_tms, val);
+	else
+		gpiod_set_value(priv->jtag_tms, val);
 }
 
-static void jtag_update_tms(struct gowin_priv *priv, int tms)
+static void jtag_clock(struct gowin_priv *priv, int tms, int tdi)
 {
-	if (priv->jtag_tms)
-		gpiod_set_value(priv->jtag_tms, tms);
+	if (priv->jtag_tdi)
+		gpiod_set_value(priv->jtag_tdi, tdi);
+	jtag_set_tms(priv, tms);
 	jtag_tck_pulse(priv);
 }
 
-static void jtag_tap_move(struct gowin_priv *priv, u8 state)
+/* Idle clocks in Run-Test/Idle */
+static void jtag_clocks(struct gowin_priv *priv, unsigned int n)
 {
-	switch (state) {
-	case 0: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); break;
-	case 1: jtag_update_tms(priv, 0); break;
-	case 2: jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
-	case 3: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
-	case 4: jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 1); jtag_update_tms(priv, 0); break;
-	default:
-		dev_warn(priv->dev, "jtag: unknown TAP state %u\n", state);
-		break;
-	}
+	while (n--)
+		jtag_clock(priv, 0, 0);
 }
 
-static void jtag_write_inst(struct gowin_priv *priv, u8 inst)
+/* Any TAP state -> Test-Logic-Reset -> Run-Test/Idle */
+static void jtag_to_idle(struct gowin_priv *priv)
 {
-	jtag_tap_move(priv, 3);
-	jtag_write(priv, &inst, 1);
-	jtag_tap_move(priv, 2);
+	int i;
+
+	for (i = 0; i < 6; i++)
+		jtag_clock(priv, 1, 0);
+	jtag_clock(priv, 0, 0);
 }
 
-static int jtag_read_code(struct gowin_priv *priv, u32 *code)
+/* Run-Test/Idle -> Shift-IR */
+static void jtag_enter_shift_ir(struct gowin_priv *priv)
+{
+	jtag_clock(priv, 1, 0);	/* Select-DR-Scan */
+	jtag_clock(priv, 1, 0);	/* Select-IR-Scan */
+	jtag_clock(priv, 0, 0);	/* Capture-IR */
+	jtag_clock(priv, 0, 0);	/* Shift-IR */
+}
+
+/* Run-Test/Idle -> Shift-DR */
+static void jtag_enter_shift_dr(struct gowin_priv *priv)
+{
+	jtag_clock(priv, 1, 0);	/* Select-DR-Scan */
+	jtag_clock(priv, 0, 0);	/* Capture-DR */
+	jtag_clock(priv, 0, 0);	/* Shift-DR */
+}
+
+/*
+ * Shift @nbits through the current shift register, LSB-first.
+ * The last bit is clocked with TMS=1 and the TAP is walked through
+ * Update back to Run-Test/Idle, so the shifted content always takes
+ * effect. When @rx is given, TDO is sampled between the falling and
+ * rising TCK edges.
+ */
+static void jtag_shift(struct gowin_priv *priv, const u8 *tx, u32 *rx,
+		       int nbits)
 {
 	u32 val = 0;
-	int i, bit;
+	int i;
 
-	jtag_tap_move(priv, 2);
-	jtag_tap_move(priv, 1);
+	for (i = 0; i < nbits; i++) {
+		int tdi = tx ? (tx[i >> 3] >> (i & 7)) & 1 : 0;
+		int last = i == nbits - 1;
 
-	for (i = 0; i < 32; i++) {
+		if (priv->jtag_tdi)
+			gpiod_set_value(priv->jtag_tdi, tdi);
+		jtag_set_tms(priv, last);
 		jtag_tck_lo(priv);
 		jtag_delay();
-		bit = priv->jtag_tdo ? gpiod_get_value(priv->jtag_tdo) : 0;
-		val |= bit << i;
+		if (rx && priv->jtag_tdo)
+			val |= (u32)gpiod_get_value(priv->jtag_tdo) << i;
 		jtag_tck_hi(priv);
 		jtag_delay();
 	}
+	if (rx)
+		*rx = val;
 
-	jtag_tap_move(priv, 1);
-	jtag_tap_move(priv, 2);
-	*code = val;
-	return 0;
+	jtag_clock(priv, 1, 0);	/* Exit1 -> Update */
+	jtag_clock(priv, 0, 0);	/* Update -> Run-Test/Idle */
 }
 
-static int check_status_code(struct gowin_priv *priv)
+static void jtag_write_ir(struct gowin_priv *priv, u8 inst)
 {
-	u32 idcode;
+	jtag_enter_shift_ir(priv);
+	jtag_shift(priv, &inst, NULL, 8);
+	jtag_clocks(priv, 6);	/* Gowin: 6 idle clocks after each instruction */
+}
+
+static u32 jtag_read_reg32(struct gowin_priv *priv, u8 inst)
+{
+	static const u8 ones[4] = { 0xff, 0xff, 0xff, 0xff };
+	u32 val = 0;
+
+	jtag_write_ir(priv, inst);
+	jtag_enter_shift_dr(priv);
+	jtag_shift(priv, ones, &val, 32);
+	return val;
+}
+
+/* Shift one 32-bit config word into DR: high byte first, LSB-first per byte */
+static void jtag_write_word(struct gowin_priv *priv, const u8 *p)
+{
+	u8 tmp[4] = { p[3], p[2], p[1], p[0] };
+
+	jtag_enter_shift_dr(priv);
+	jtag_shift(priv, tmp, NULL, 32);
+}
+
+static u32 gowin_status(struct gowin_priv *priv)
+{
+	return jtag_read_reg32(priv, GWJ_READ_STATUS);
+}
+
+static int gowin_poll_status(struct gowin_priv *priv, u32 mask, u32 value,
+			     unsigned int timeout_ms)
+{
+	u32 status;
+
+	do {
+		status = gowin_status(priv);
+		if ((status & mask) == value)
+			return 0;
+		msleep(1);
+	} while (timeout_ms--);
+
+	dev_err(priv->dev,
+		"jtag: status poll timeout (mask 0x%x, want 0x%x, have 0x%08x)\n",
+		mask, value, status);
+	return -ETIMEDOUT;
+}
+
+static int gowin_config_enable(struct gowin_priv *priv)
+{
+	jtag_write_ir(priv, GWJ_CONFIG_ENABLE);
+	return gowin_poll_status(priv, GWS_SYSTEM_EDIT_MODE,
+				 GWS_SYSTEM_EDIT_MODE, 100);
+}
+
+static int gowin_config_disable(struct gowin_priv *priv)
+{
+	jtag_write_ir(priv, GWJ_CONFIG_DISABLE);
+	jtag_write_ir(priv, GWJ_NOOP);
+	return gowin_poll_status(priv, GWS_SYSTEM_EDIT_MODE, 0, 100);
+}
+
+/* TN653 p.9-10: erase the configuration SRAM */
+static int gowin_erase_sram(struct gowin_priv *priv)
+{
 	int ret;
 
-	ret = jtag_read_code(priv, &idcode);
+	ret = gowin_config_enable(priv);
 	if (ret)
 		return ret;
 
-	if ((idcode & 0x0fffffff) != 0x0080181b) {
-		dev_err(priv->dev, "jtag: unexpected FPGA ID 0x%08x (expected 0x0080181b)\n", idcode);
-		return -ENODEV;
-	}
+	jtag_write_ir(priv, GWJ_ERASE_SRAM);
+	jtag_write_ir(priv, GWJ_NOOP);
 
-	return 0;
+	/* MEMORY_ERASE goes high once the erase completes (TN653: ~4ms) */
+	ret = gowin_poll_status(priv, GWS_MEMORY_ERASE, GWS_MEMORY_ERASE, 100);
+	if (ret)
+		return ret;
+
+	jtag_write_ir(priv, GWJ_XFER_DONE);
+	jtag_write_ir(priv, GWJ_NOOP);
+
+	return gowin_config_disable(priv);
 }
 
-static int jtag_erase_flash(struct gowin_priv *priv)
+/* TN653 p.14-17: erase the embedded flash */
+static int gowin_erase_flash(struct gowin_priv *priv)
 {
-	if (!priv->jtag_tdi || !priv->jtag_tck) {
-		dev_warn(priv->dev, "jtag: cannot erase flash, JTAG not available\n");
-		return -ENODEV;
-	}
+	static const u8 zero[4] = { 0, 0, 0, 0 };
+	u32 status;
+	int ret;
 
-	jtag_write_inst(priv, 0x05);
-	usleep_range(1000, 2000);
-	jtag_write_inst(priv, 0x04);
-	usleep_range(1000, 2000);
+	priv->erase_attempts++;
 
-	jtag_tap_move(priv, 4);
-	usleep_range(1000, 2000);
+	ret = gowin_config_enable(priv);
+	if (ret)
+		return ret;
 
-	return 0;
-}
+	jtag_write_ir(priv, GWJ_EFLASH_ERASE);
 
-static int jtag_prog_fpga(struct gowin_priv *priv, const u8 *data, int len)
-{
-	int offset = 0;
-	int remaining = len;
+	jtag_enter_shift_dr(priv);
+	jtag_shift(priv, zero, NULL, 32);
 
-	dev_dbg(priv->dev, "jtag programming %d bytes\n", len);
-
-	jtag_tap_move(priv, 0);
-	msleep(10);
-
-	jtag_write_inst(priv, 0x06);
-	msleep(1);
-
-	while (remaining > 0) {
-		int chunk = min(remaining, 256);
-		jtag_write(priv, data + offset, chunk);
-		offset += chunk;
-		remaining -= chunk;
-	}
-
-	jtag_write_inst(priv, 0x02);
+	/*
+	 * TN653: no completion bit exists; wait out the erase (~160ms)
+	 * with the clock running (150ms at 2.5MHz ~ 375000 clocks).
+	 */
+	jtag_clocks(priv, 375000);
 	msleep(100);
 
-	if (check_status_code(priv)) {
-		dev_err(priv->dev, "jtag: FPGA verification failed after programming %d bytes\n", len);
+	ret = gowin_config_disable(priv);
+	if (ret)
+		return ret;
+
+	msleep(500);
+
+	status = gowin_status(priv);
+	if (status & GWS_DONE_FINAL) {
+		dev_err(priv->dev, "jtag: flash erase failed, status 0x%08x\n",
+			status);
+		return -EIO;
+	}
+	return 0;
+}
+
+/* TN653 p.17-21: program the embedded flash in 256-byte pages */
+static int gowin_write_flash(struct gowin_priv *priv, const u8 *data, int len)
+{
+	int pages = len / 256;
+	int page, word;
+	unsigned long flags;
+
+	jtag_to_idle(priv);
+
+	for (page = 0; page < pages; page++) {
+		u8 addr[4];
+		u32 a = (u32)page << 6;
+
+		jtag_write_ir(priv, GWJ_CONFIG_ENABLE);
+		jtag_write_ir(priv, GWJ_EF_PROGRAM);
+
+		if (page)
+			jtag_clocks(priv, 312);
+
+		addr[0] = a & 0xff;
+		addr[1] = (a >> 8) & 0xff;
+		addr[2] = (a >> 16) & 0xff;
+		addr[3] = (a >> 24) & 0xff;
+
+		local_irq_save(flags);
+		jtag_enter_shift_dr(priv);
+		jtag_shift(priv, addr, NULL, 32);
+		jtag_clocks(priv, 312);
+
+		for (word = 0; word < 64; word++) {
+			jtag_write_word(priv, data + page * 256 + word * 4);
+			jtag_clocks(priv, 40);
+		}
+		local_irq_restore(flags);
+	}
+
+	jtag_to_idle(priv);
+	return 0;
+}
+
+/* Full internal-flash programming sequence (TN653 p.9-21) */
+static int gowin_program_flash(struct gowin_priv *priv, const u8 *data,
+			       int len)
+{
+	u32 idcode, status, usercode;
+	int ret;
+
+	/* Talk to the TAP first: right chip, live link? */
+	idcode = jtag_read_reg32(priv, GWJ_READ_IDCODE);
+	dev_info(priv->dev, "jtag: FPGA IDCODE 0x%08x\n", idcode);
+	if ((idcode & 0x0fffffff) != GOWIN_IDCODE) {
+		dev_err(priv->dev,
+			"jtag: unexpected FPGA IDCODE 0x%08x (expected 0x%08x)\n",
+			idcode, GOWIN_IDCODE);
+		return -ENODEV;
+	}
+
+	status = gowin_status(priv);
+	if (!(status & (GWS_GOWIN_VLD | GWS_POR))) {
+		dev_err(priv->dev,
+			"jtag: neither VLD nor POR set, status 0x%08x\n", status);
 		return -EIO;
 	}
 
-	jtag_tap_move(priv, 4);
-	dev_dbg(priv->dev, "jtag programming complete (%d bytes)\n", len);
+	ret = gowin_erase_sram(priv);
+	if (ret)
+		return ret;
+
+	ret = gowin_erase_flash(priv);
+	if (ret)
+		return ret;
+
+	ret = gowin_write_flash(priv, data, len);
+	if (ret)
+		return ret;
+
+	ret = gowin_config_disable(priv);
+	if (ret)
+		return ret;
+
+	jtag_write_ir(priv, GWJ_RELOAD);
+	jtag_write_ir(priv, GWJ_NOOP);
+
+	/* The FPGA now reloads its configuration from flash */
+	msleep(600);
+
+	status = gowin_status(priv);
+	usercode = jtag_read_reg32(priv, GWJ_READ_USERCODE);
+	dev_info(priv->dev, "jtag: post-program status 0x%08x usercode 0x%08x\n",
+		 status, usercode);
+
+	if (status & GWS_ERROR_MASK) {
+		dev_err(priv->dev, "jtag: status error bits set: 0x%08x\n",
+			status);
+		return -EIO;
+	}
+	if (!(status & GWS_DONE_FINAL) || !(status & GWS_GOWIN_VLD)) {
+		dev_err(priv->dev,
+			"jtag: FPGA not configured after reload, status 0x%08x\n",
+			status);
+		return -EIO;
+	}
+
 	return 0;
 }
 
@@ -1089,34 +1335,92 @@ static int select_spi_mode(struct gowin_priv *priv)
 static int lp_update_firmware(struct gowin_priv *priv,
 			      const u8 *data, int len)
 {
+	int attempt, ret = -EIO;
+
+	for (attempt = 1; attempt <= 3; attempt++) {
+		ret = select_jtag_mode(priv);
+		if (ret) {
+			dev_err(priv->dev, "failed to select JTAG mode: %d\n", ret);
+			return ret;
+		}
+
+		fpga_hw_reset(priv);
+		ret = gowin_program_flash(priv, data, len);
+		select_spi_mode(priv);
+		priv->prog_attempts = attempt;
+		if (!ret) {
+			dev_info(priv->dev, "firmware update: done\n");
+			return 0;
+		}
+
+		dev_warn(priv->dev, "jtag: programming attempt %d failed: %d\n",
+			 attempt, ret);
+		msleep(200);
+	}
+
+	return ret;
+}
+
+static bool jtag_pins_available(struct gowin_priv *priv)
+{
+	bool ok = true;
+
+	if (!priv->jtag_tms) {
+		dev_err(priv->dev, "jtag: TMS line unavailable, cannot program\n");
+		ok = false;
+	}
+	if (!priv->jtag_tdi) {
+		dev_err(priv->dev, "jtag: TDI line unavailable, cannot program\n");
+		ok = false;
+	}
+	if (!priv->jtag_tdo) {
+		dev_err(priv->dev, "jtag: TDO line unavailable, cannot program\n");
+		ok = false;
+	}
+	if (!priv->jtag_tck && !priv->jtag_tck_reg) {
+		dev_err(priv->dev, "jtag: TCK line unavailable, cannot program\n");
+		ok = false;
+	}
+	return ok;
+}
+
+/*
+ * Build the flash image around the embedded bitstream: the "GW1N"
+ * autoboot magic plus 20 dummy bytes precede the bitstream, and the
+ * whole image is padded with 0xff to the 256-byte flash page
+ * (TN653 p.17).
+ */
+static int lp_flash_embedded_bitstream(struct gowin_priv *priv)
+{
+	const size_t hdr = 24;
+	size_t img_len;
+	u8 *img;
 	int ret;
 
-	dev_info(priv->dev, "firmware update (%d bytes): switching to JTAG\n", len);
-	ret = select_jtag_mode(priv);
-	if (ret) {
-		dev_err(priv->dev, "failed to select JTAG mode: %d\n", ret);
-		return ret;
-	}
+	img_len = round_up(hdr + fpga_bitstream_len, 256);
+	img = kvzalloc(img_len, GFP_KERNEL);
+	if (!img)
+		return -ENOMEM;
 
-	fpga_hw_reset(priv);
-	ret = jtag_prog_fpga(priv, data, len);
-	if (ret) {
-		dev_err(priv->dev, "JTAG programming failed: %d\n", ret);
-		select_spi_mode(priv);
-		return ret;
-	}
+	memset(img, 0xff, img_len);
+	memcpy(img, "GW1N", 4);
+	memcpy(img + hdr, fpga_bitstream, fpga_bitstream_len);
 
-	dev_info(priv->dev, "firmware update: switching back to SPI\n");
-	ret = select_spi_mode(priv);
-	if (ret)
-		dev_err(priv->dev, "failed to restore SPI mode: %d\n", ret);
+	ret = lp_update_firmware(priv, img, img_len);
 
-	return 0;
+	kvfree(img);
+	return ret;
 }
 
 static int lp_handle_firmware_update(struct gowin_priv *priv)
 {
 	int ret;
+
+	if (!jtag_pins_available(priv)) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "FAILED: JTAG pins unavailable");
+		return -ENODEV;
+	}
 
 	dev_info(priv->dev, "programming embedded FPGA bitstream (%zu bytes)\n",
 		 fpga_bitstream_len);
@@ -1124,7 +1428,7 @@ static int lp_handle_firmware_update(struct gowin_priv *priv)
 	snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 		 "flashing embedded bitstream (%u bytes)", fpga_bitstream_len);
 
-	ret = lp_update_firmware(priv, fpga_bitstream, fpga_bitstream_len);
+	ret = lp_flash_embedded_bitstream(priv);
 
 	if (ret) {
 		dev_err(priv->dev, "embedded FPGA bitstream programming FAILED: %d\n", ret);
@@ -1386,28 +1690,65 @@ static ssize_t jtag_reconfig_store(struct device *dev,
 static ssize_t jtag_fpga_prog_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	return sysfs_emit(buf, "0\n");
+	struct gowin_priv *priv = dev_get_drvdata(dev);
+	return sysfs_emit(buf, "%u\n", priv->prog_attempts);
 }
 
 static ssize_t jtag_codes_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
-	u32 idcode = 0, usercode = 0;
+	struct gowin_priv *priv = dev_get_drvdata(dev);
+	u32 idcode = 0, usercode = 0, status = 0;
 
-	return sysfs_emit(buf, "ID=0x%08x USER=0x%08x STATUS=0\n",
-			  idcode, usercode);
+	if (!jtag_pins_available(priv))
+		return sysfs_emit(buf, "ID=0x%08x USER=0x%08x STATUS=0x%08x\n",
+				  idcode, usercode, status);
+
+	if (select_jtag_mode(priv) == 0) {
+		jtag_to_idle(priv);
+		idcode = jtag_read_reg32(priv, GWJ_READ_IDCODE);
+		usercode = jtag_read_reg32(priv, GWJ_READ_USERCODE);
+		status = gowin_status(priv);
+		select_spi_mode(priv);
+	}
+
+	return sysfs_emit(buf, "ID=0x%08x USER=0x%08x STATUS=0x%08x\n",
+			  idcode, usercode, status);
 }
 
 static ssize_t jtag_erase_flash_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
-	return sysfs_emit(buf, "0\n");
+	struct gowin_priv *priv = dev_get_drvdata(dev);
+	return sysfs_emit(buf, "%u\n", priv->erase_attempts);
 }
 
 static ssize_t test_fpga_prog_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t len)
 {
+	struct gowin_priv *priv = dev_get_drvdata(dev);
+	unsigned int n, i;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &n);
+	if (ret)
+		return ret;
+	if (n > 10)
+		n = 10;
+
+	if (!jtag_pins_available(priv))
+		return -ENODEV;
+
+	for (i = 0; i < n; i++) {
+		ret = lp_flash_embedded_bitstream(priv);
+		if (ret) {
+			dev_err(dev, "test cycle %u/%u failed: %d\n",
+				i + 1, n, ret);
+			return ret;
+		}
+	}
+
 	return len;
 }
 
@@ -1530,9 +1871,21 @@ static int probe(struct spi_device *spi)
 
 	priv->jtag_tms = devm_gpiod_get_optional(dev, "jtag_tms", GPIOD_OUT_LOW);
 	if (IS_ERR(priv->jtag_tms)) {
-		dev_warn(dev, "jtag_tms GPIO unavailable (%ld), proceeding without\n",
-			 PTR_ERR(priv->jtag_tms));
-		priv->jtag_tms = NULL;
+		/*
+		 * Stock wiring shares JTAG TMS with the SPI chip-select
+		 * line (GPIOH_7): the SPI core already owns it as CS, so
+		 * reuse that descriptor instead of failing. JTAG only
+		 * runs while the SPI bus is idle (jtag_mode).
+		 */
+		if (PTR_ERR(priv->jtag_tms) == -EBUSY && spi->cs_gpiod) {
+			priv->jtag_tms = spi->cs_gpiod;
+			priv->jtag_tms_via_cs = true;
+			dev_info(dev, "jtag_tms: reusing SPI CS line (shared pin)\n");
+		} else {
+			dev_warn(dev, "jtag_tms GPIO unavailable (%ld), proceeding without\n",
+				 PTR_ERR(priv->jtag_tms));
+			priv->jtag_tms = NULL;
+		}
 	}
 
 	priv->jtag_sel = devm_gpiod_get_optional(dev, "jtag_sel", GPIOD_OUT_HIGH);
