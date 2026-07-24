@@ -1877,8 +1877,8 @@ static int probe(struct spi_device *spi)
 		 * reuse that descriptor instead of failing. JTAG only
 		 * runs while the SPI bus is idle (jtag_mode).
 		 */
-		if (PTR_ERR(priv->jtag_tms) == -EBUSY && spi->cs_gpiod) {
-			priv->jtag_tms = spi->cs_gpiod;
+		if (PTR_ERR(priv->jtag_tms) == -EBUSY && spi->cs_gpiod[0]) {
+			priv->jtag_tms = spi->cs_gpiod[0];
 			priv->jtag_tms_via_cs = true;
 			dev_info(dev, "jtag_tms: reusing SPI CS line (shared pin)\n");
 		} else {
