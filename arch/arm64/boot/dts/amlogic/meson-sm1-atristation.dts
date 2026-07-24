@@ -300,15 +300,15 @@
 		};
 	};
 
-	/* USB power enable */
+	/* USB power enable
+	 * No VBUS GPIO on this board (stock Yandex DTB wires none);
+	 * GPIOH_6 is the FPGA JTAG TDO line, do not claim it here. */
 	usb_pwr_en: regulator-usb-pwr-en {
 		compatible = "regulator-fixed";
 		regulator-name = "USB_PWR_EN";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc_5v>;
-		gpio = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
 		regulator-boot-on;
 		regulator-always-on;
 	};
@@ -1172,8 +1172,12 @@
 		reg = <0>;
 		spi-max-frequency = <4000000>;
 		max-brightness = <200>;
+		pinctrl-names = "default", "jtag";
+		pinctrl-0 = <&spicc1_pins>;
+		pinctrl-1 = <&led_panel_jtag_pins>;
 		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
-		jtag_tck_desc = <0xff634468 0x07>;
+		/* GPIOH output register, bit 8 = GPIOH_8 (JTAG TCK) */
+		jtag_tck_desc = <0xff634468 0x08>;
 		jtag_reconfig-gpios = <&gpio BOOT_0 GPIO_ACTIVE_LOW>;
 		jtag_sel-gpios = <&gpio_ao GPIOE_2 GPIO_ACTIVE_HIGH>;
 		jtag_tck-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_HIGH>;
@@ -1181,6 +1185,21 @@
 		jtag_tdo-gpios = <&gpio GPIOH_6 GPIO_ACTIVE_HIGH>;
 		jtag_tms-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_HIGH>;
 		status = "okay";
+	};
+};
+
+/*
+ * FPGA JTAG bit-bang shares the spicc1 pins. The meson pinctrl driver
+ * does not re-mux pins on gpio_request, so switching between SPI and
+ * JTAG requires explicit pinctrl states on the led_panel node.
+ */
+&periphs_pinctrl {
+	led_panel_jtag_pins: led-panel-jtag {
+		mux {
+			groups = "GPIOH_5", "GPIOH_6", "GPIOH_7", "GPIOH_8";
+			function = "gpio_periphs";
+			bias-disable;
+		};
 	};
 };
 
