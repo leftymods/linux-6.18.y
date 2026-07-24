@@ -2039,6 +2039,16 @@ config SND_SOC_SSM4567
 	tristate "Analog Devices ssm4567 amplifier driver support"
 	depends on I2C
 
+config SND_SOC_SY6045S
+	tristate "Silergy SY6045S Class-D audio amplifier"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+	  Enable support for the Silergy SY6045S Class-D amplifier with
+	  I2C control. Used on AtriStation (Yandex Station 2) for the
+	  tweeter and woofer amplifiers.
+
 config SND_SOC_STA32X
 	tristate "STA326, STA328 and STA329 speaker amplifier"
 	depends on I2C
