@@ -307,3 +307,4 @@ struct sun8i_layer *sun8i_ui_layer_init_one(struct drm_device *drm,
 
 	return layer;
 }
+EXPORT_SYMBOL_GPL(sun8i_ui_layer_init_one);

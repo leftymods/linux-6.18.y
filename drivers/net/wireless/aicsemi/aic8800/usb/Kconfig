@@ -1,0 +1,14 @@
+config AIC8800_USB_WLAN
+	bool "AIC8800 USB WLAN Support"
+	default y
+	depends on AIC8800_SUPPORT
+	depends on USB
+	help
+	  Support AICSemi AIC8800 USB wireless.
+
+config AIC8800_USB_FW_PATH
+	string "Firmware & config file path"
+	default "/lib/firmware/aic8800_usb"
+	depends on AIC8800_USB_WLAN
+	help
+	  Path to the firmware & config file.

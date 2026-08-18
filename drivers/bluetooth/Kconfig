@@ -3,6 +3,16 @@
 menu "Bluetooth device drivers"
 	depends on BT
 
+source "drivers/bluetooth/aic_btusb/Kconfig"
+
+config BT_HCIAIC
+	tristate "AIC8800 Bluetooth HCI UART driver"
+	depends on SERIAL_DEV_BUS
+	help
+	  AIC8800 Bluetooth HCI UART (serdev) driver. This is for the
+	  Bluetooth part of the AIC8800 WiFi/BT combo chip, which is a
+	  plain H4 HCI stream over UART.
+
 config BT_INTEL
 	tristate
 	select REGMAP

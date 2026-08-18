@@ -115,9 +115,9 @@
 };
 
 /* --- 3. USB PHY 与控制器 --- */
-&u2phy { status = "okay"; };
-&u2phy_host { status = "okay"; };
-&u2phy_otg { status = "okay"; };
+&usb2phy { status = "okay"; };
+&usb2phy_host { status = "okay"; };
+&usb2phy_otg { status = "okay"; };
 
 &combphy {
     rockchip,enable-ssc;
@@ -128,7 +128,7 @@
 
 &usb_host0_xhci {
     dr_mode = "host";
-    phys = <&u2phy_otg>, <&combphy PHY_TYPE_USB3>;
+    phys = <&usb2phy_otg>, <&combphy PHY_TYPE_USB3>;
     phy-names = "usb2-phy", "usb3-phy";
     vbus-supply = <&vcc5v0_host>;
     snps,dis_u2_susphy_quirk;

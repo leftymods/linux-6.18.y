@@ -716,6 +716,7 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	case NL80211_IFTYPE_WDS:
 	case NL80211_IFTYPE_MONITOR:
 	case NL80211_IFTYPE_P2P_DEVICE:
+	case NL80211_IFTYPE_PD:
 	case NL80211_IFTYPE_UNSPECIFIED:
 	case NUM_NL80211_IFTYPES:
 	case NL80211_IFTYPE_P2P_CLIENT:
@@ -1145,9 +1146,6 @@ static int ieee80211_set_fils_discovery(struct ieee80211_sub_if_data *sdata,
 	fd->max_interval = params->max_interval;
 
 	old = sdata_dereference(link->u.ap.fils_discovery, sdata);
-	if (old)
-		kfree_rcu(old, rcu_head);
-
 	if (params->tmpl && params->tmpl_len) {
 		new = kzalloc(sizeof(*new) + params->tmpl_len, GFP_KERNEL);
 		if (!new)
@@ -1158,6 +1156,9 @@ static int ieee80211_set_fils_discovery(struct ieee80211_sub_if_data *sdata,
 	} else {
 		RCU_INIT_POINTER(link->u.ap.fils_discovery, NULL);
 	}
+
+	if (old)
+		kfree_rcu(old, rcu_head);
 
 	*changed |= BSS_CHANGED_FILS_DISCOVERY;
 	return 0;
@@ -1178,8 +1179,6 @@ ieee80211_set_unsol_bcast_probe_resp(struct ieee80211_sub_if_data *sdata,
 	link_conf->unsol_bcast_probe_resp_interval = params->interval;
 
 	old = sdata_dereference(link->u.ap.unsol_bcast_probe_resp, sdata);
-	if (old)
-		kfree_rcu(old, rcu_head);
 
 	if (params->tmpl && params->tmpl_len) {
 		new = kzalloc(sizeof(*new) + params->tmpl_len, GFP_KERNEL);
@@ -1191,6 +1190,9 @@ ieee80211_set_unsol_bcast_probe_resp(struct ieee80211_sub_if_data *sdata,
 	} else {
 		RCU_INIT_POINTER(link->u.ap.unsol_bcast_probe_resp, NULL);
 	}
+
+	if (old)
+		kfree_rcu(old, rcu_head);
 
 	*changed |= BSS_CHANGED_UNSOL_BCAST_PROBE_RESP;
 	return 0;
@@ -1390,6 +1392,36 @@ ieee80211_calc_ap_he_and_lower(struct cfg80211_beacon_data *params)
 	return IEEE80211_STA_RX_BW_20;
 }
 
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_calc_ap_eht_bw(struct cfg80211_beacon_data *params,
+			 enum ieee80211_sta_rx_bandwidth he_and_lower)
+{
+	const struct ieee80211_eht_operation_info *info;
+
+	if (!params->eht_oper)
+		return he_and_lower;
+
+	info = ieee80211_eht_oper_info(params->eht_oper);
+	if (!info)
+		return he_and_lower;
+
+	switch (u8_get_bits(info->control, IEEE80211_EHT_OPER_CHAN_WIDTH)) {
+	case IEEE80211_EHT_OPER_CHAN_WIDTH_20MHZ:
+		return IEEE80211_STA_RX_BW_20;
+	case IEEE80211_EHT_OPER_CHAN_WIDTH_40MHZ:
+		return IEEE80211_STA_RX_BW_40;
+	case IEEE80211_EHT_OPER_CHAN_WIDTH_80MHZ:
+		return IEEE80211_STA_RX_BW_80;
+	case IEEE80211_EHT_OPER_CHAN_WIDTH_160MHZ:
+		return IEEE80211_STA_RX_BW_160;
+	case IEEE80211_EHT_OPER_CHAN_WIDTH_320MHZ:
+		return IEEE80211_STA_RX_BW_320;
+	}
+
+	/* invalid setting, assume 20 MHz */
+	return IEEE80211_STA_RX_BW_20;
+}
+
 static void ieee80211_update_ap_bandwidth(struct ieee80211_link_data *link,
 					  struct cfg80211_beacon_data *params)
 {
@@ -1414,6 +1446,8 @@ static void ieee80211_update_ap_bandwidth(struct ieee80211_link_data *link,
 		return;
 
 	link->bss_bw.he_and_lower = ieee80211_calc_ap_he_and_lower(params);
+	link->bss_bw.eht = ieee80211_calc_ap_eht_bw(params,
+						    link->bss_bw.he_and_lower);
 
 	chanctx_conf = sdata_dereference(link->conf->chanctx_conf, link->sdata);
 	chanctx = container_of(chanctx_conf, struct ieee80211_chanctx, conf);
@@ -1612,7 +1646,10 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	unsigned int link_id = params->beacon.link_id;
 	struct ieee80211_link_data *link;
 	struct ieee80211_bss_conf *link_conf;
-	struct ieee80211_chan_req chanreq = { .oper = params->chandef };
+	struct ieee80211_chan_req chanreq = {
+		.oper = params->chandef,
+		.require_npca = true,
+	};
 	u64 tsf;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
@@ -1721,10 +1758,42 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	}
 
 	if (params->beacon.uhr_oper) {
+		const struct ieee80211_uhr_npca_info *npca;
+		struct ieee80211_bss_npca_params npca_params = {};
+
 		if (!link_conf->eht_support)
 			return -EOPNOTSUPP;
 
 		link_conf->uhr_support = true;
+
+		npca = ieee80211_uhr_npca_info(params->beacon.uhr_oper);
+		if (!npca) {
+			chanreq.oper.npca_chan = NULL;
+			chanreq.oper.npca_punctured = 0;
+		} else {
+			npca_params.min_dur_thresh =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_MIN_DUR_THRESH);
+			npca_params.switch_delay =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_SWITCH_DELAY);
+			npca_params.switch_back_delay =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_SWITCH_BACK_DELAY);
+			npca_params.init_qsrc =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_INIT_QSRC);
+			npca_params.moplen =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_MOPLEN);
+			npca_params.enabled = true;
+		}
+
+		if (memcmp(&npca_params, &link->conf->npca,
+			   sizeof(npca_params))) {
+			link->conf->npca = npca_params;
+			changed |= BSS_CHANGED_NPCA;
+		}
 	}
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP &&
@@ -1954,6 +2023,7 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev,
 	struct ieee80211_link_data *link =
 		sdata_dereference(sdata->link[link_id], sdata);
 	struct ieee80211_bss_conf *link_conf = link->conf;
+	u64 changes = BSS_CHANGED_BEACON_ENABLED;
 	LIST_HEAD(keys);
 
 	lockdep_assert_wiphy(local->hw.wiphy);
@@ -2003,6 +2073,11 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev,
 	if (old_s1g_short_beacon)
 		kfree_rcu(old_s1g_short_beacon, rcu_head);
 
+	if (link_conf->ftm_responder) {
+		link_conf->ftm_responder = false;
+		changes |= BSS_CHANGED_FTM_RESPONDER;
+	}
+
 	kfree(link_conf->ftmr_params);
 	link_conf->ftmr_params = NULL;
 
@@ -2024,8 +2099,7 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev,
 	sdata->vif.cfg.ssid_len = 0;
 	sdata->vif.cfg.s1g = false;
 	clear_bit(SDATA_STATE_OFFCHANNEL_BEACON_STOPPED, &sdata->state);
-	ieee80211_link_info_change_notify(sdata, link,
-					  BSS_CHANGED_BEACON_ENABLED);
+	ieee80211_link_info_change_notify(sdata, link, changes);
 
 	ieee80211_remove_link_keys(link, &keys);
 	if (!list_empty(&keys)) {
@@ -2537,6 +2611,9 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 		memcpy(&sta->deflink.pub->supp_rates,
 		       &nmi_sta->deflink.pub->supp_rates,
 		       sizeof(sta->deflink.pub->supp_rates));
+
+		sta->deflink.pub->agg = nmi_sta->deflink.pub->agg;
+		__ieee80211_sta_recalc_aggregates(sta, 0);
 	}
 
 	/* set the STA state after all sta info from usermode has been set */
@@ -3460,6 +3537,7 @@ static int ieee80211_scan(struct wiphy *wiphy,
 		}
 		break;
 	case NL80211_IFTYPE_NAN:
+	case NL80211_IFTYPE_PD:
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -4429,6 +4507,9 @@ static int __ieee80211_csa_finalize(struct ieee80211_link_data *link_data)
 
 	ieee80211_link_info_change_notify(sdata, link_data, changed);
 
+	if (sdata->vif.type == NL80211_IFTYPE_AP)
+		ieee80211_uhr_disable_dbe_all_stas(link_data);
+
 	ieee80211_vif_unblock_queues_csa(sdata);
 
 	err = drv_post_channel_switch(link_data);
@@ -4551,8 +4632,6 @@ static int ieee80211_set_csa_beacon(struct ieee80211_link_data *link_data,
 			    cfg80211_get_chandef_type(&sdata->u.ibss.chandef))
 				return -EINVAL;
 			break;
-		case NL80211_CHAN_WIDTH_5:
-		case NL80211_CHAN_WIDTH_10:
 		case NL80211_CHAN_WIDTH_20_NOHT:
 		case NL80211_CHAN_WIDTH_20:
 			break;
@@ -4628,7 +4707,10 @@ __ieee80211_channel_switch(struct wiphy *wiphy, struct net_device *dev,
 			   struct cfg80211_csa_settings *params)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-	struct ieee80211_chan_req chanreq = { .oper = params->chandef };
+	struct ieee80211_chan_req chanreq = {
+		.oper = params->chandef,
+		.require_npca = true,
+	};
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_channel_switch ch_switch = {
 		.link_id = params->link_id,
@@ -5070,7 +5152,10 @@ static int ieee80211_set_ap_chanwidth(struct wiphy *wiphy,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_link_data *link;
-	struct ieee80211_chan_req chanreq = { .oper = *chandef };
+	struct ieee80211_chan_req chanreq = {
+		.oper = *chandef,
+		.require_npca = true,
+	};
 	int ret;
 	u64 changed = 0;
 
@@ -5217,6 +5302,25 @@ void ieee80211_nan_func_match(struct ieee80211_vif *vif,
 	cfg80211_nan_match(ieee80211_vif_to_wdev(vif), match, gfp);
 }
 EXPORT_SYMBOL(ieee80211_nan_func_match);
+
+void ieee80211_nan_cluster_joined(struct ieee80211_vif *vif,
+				  const u8 *cluster_id, bool new_cluster,
+				  gfp_t gfp)
+{
+	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+
+	if (WARN_ON(vif->type != NL80211_IFTYPE_NAN))
+		return;
+
+	if (WARN_ON(!sdata->u.nan.started))
+		return;
+
+	ether_addr_copy(sdata->u.nan.conf.cluster_id, cluster_id);
+
+	cfg80211_nan_cluster_joined(ieee80211_vif_to_wdev(vif), cluster_id,
+				    new_cluster, gfp);
+}
+EXPORT_SYMBOL(ieee80211_nan_cluster_joined);
 
 static int ieee80211_set_multicast_to_unicast(struct wiphy *wiphy,
 					      struct net_device *dev,

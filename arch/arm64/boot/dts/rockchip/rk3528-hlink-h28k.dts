@@ -75,15 +75,15 @@
 	};
 };
 
-&u2phy_otg {
+&usb2phy_otg {
 	status = "okay";
 };
 
 /* otg mode only */
 &usb_host0_xhci {
-	extcon = <&u2phy>;
+	extcon = <&usb2phy>;
 	maximum-speed = "high-speed";
-	phys = <&u2phy_otg>;
+	phys = <&usb2phy_otg>;
 	phy-names = "usb2-phy";
 	status = "okay";
 };

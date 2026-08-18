@@ -476,7 +476,8 @@ static int btmtksdio_rx_packet(struct btmtksdio_dev *bdev, u16 rx_size)
 	err = -EILSEQ;
 
 	if (rx_size != le16_to_cpu(sdio_hdr->len)) {
-		bt_dev_err(bdev->hdev, "Rx size in sdio header is mismatched ");
+		bt_dev_err_ratelimited(bdev->hdev,
+				       "Rx size in sdio header is mismatched ");
 		goto err_kfree_skb;
 	}
 
@@ -495,14 +496,19 @@ static int btmtksdio_rx_packet(struct btmtksdio_dev *bdev, u16 rx_size)
 	}
 
 	if (i >= pkts_count) {
-		bt_dev_err(bdev->hdev, "Invalid bt type 0x%02x",
-			   sdio_hdr->bt_type);
+		/* Rate limited: a malfunctioning chip can feed a continuous
+		 * stream of garbage packets, and the unthrottled printk
+		 * flood is enough to wedge a serial console.
+		 */
+		bt_dev_err_ratelimited(bdev->hdev, "Invalid bt type 0x%02x",
+				       sdio_hdr->bt_type);
 		goto err_kfree_skb;
 	}
 
 	/* Remaining bytes cannot hold a header*/
 	if (skb->len < (&pkts[i])->hlen) {
-		bt_dev_err(bdev->hdev, "The size of bt header is mismatched");
+		bt_dev_err_ratelimited(bdev->hdev,
+				       "The size of bt header is mismatched");
 		goto err_kfree_skb;
 	}
 
@@ -522,7 +528,8 @@ static int btmtksdio_rx_packet(struct btmtksdio_dev *bdev, u16 rx_size)
 
 	/* Remaining bytes cannot hold a payload */
 	if (pad_size < 0) {
-		bt_dev_err(bdev->hdev, "The size of bt payload is mismatched");
+		bt_dev_err_ratelimited(bdev->hdev,
+				       "The size of bt payload is mismatched");
 		goto err_kfree_skb;
 	}
 
@@ -607,7 +614,7 @@ static void btmtksdio_txrx_work(struct work_struct *work)
 			if (btmtksdio_rx_packet(bdev, rx_size) < 0)
 				bdev->hdev->stat.err_rx++;
 		}
-	} while (int_status || time_is_before_jiffies(txrx_timeout));
+	} while (int_status && time_is_after_jiffies(txrx_timeout));
 
 	/* Enable interrupt */
 	if (bdev->func->irq_handler)
@@ -639,6 +646,17 @@ static int btmtksdio_open(struct hci_dev *hdev)
 	struct btmtksdio_dev *bdev = hci_get_drvdata(hdev);
 	u32 val;
 	int err;
+
+	/* On the MT7668 the close path is a pure software state change
+	 * (see btmtksdio_close), so a re-open finds the function still
+	 * running exactly as the first open left it. Re-writing the SDIO
+	 * plumbing here is what throws the chip into the unrecoverable
+	 * state observed on device (function query reporting off, garbage
+	 * packet floods), so skip it entirely.
+	 */
+	if (bdev->data->chipid == 0x7668 &&
+	    test_bit(BTMTKSDIO_FUNC_ENABLED, &bdev->tx_state))
+		return 0;
 
 	sdio_claim_host(bdev->func);
 
@@ -710,7 +728,15 @@ err_release_irq:
 	sdio_release_irq(bdev->func);
 
 err_disable_func:
-	sdio_disable_func(bdev->func);
+	/* Keep the MT7668 SDIO function enabled even when the open fails:
+	 * disabling it gates off the Bluetooth core in a way a later
+	 * re-open cannot recover from, exactly as in btmtksdio_close().
+	 * A failed open (e.g. an ownership handshake timeout while the
+	 * Wi-Fi function is downloading the shared CR4 firmware) can
+	 * simply be retried with the function left untouched.
+	 */
+	if (bdev->data->chipid != 0x7668)
+		sdio_disable_func(bdev->func);
 
 err_release_host:
 	sdio_release_host(bdev->func);
@@ -718,11 +744,11 @@ err_release_host:
 	return err;
 }
 
-static int btmtksdio_close(struct hci_dev *hdev)
+static int btmtksdio_close_hw(struct hci_dev *hdev)
 {
 	struct btmtksdio_dev *bdev = hci_get_drvdata(hdev);
 
-	/* Skip btmtksdio_close if BTMTKSDIO_FUNC_ENABLED isn't set */
+	/* Skip btmtksdio_close_hw if BTMTKSDIO_FUNC_ENABLED isn't set */
 	if (!test_bit(BTMTKSDIO_FUNC_ENABLED, &bdev->tx_state))
 		return 0;
 
@@ -733,16 +759,63 @@ static int btmtksdio_close(struct hci_dev *hdev)
 
 	sdio_release_irq(bdev->func);
 
+	sdio_release_host(bdev->func);
+
+	/* The txrx work claims the SDIO host itself, so it must not be
+	 * flushed while the host is still held here: close() would wait
+	 * for the work to finish while the work waits for the host,
+	 * deadlocking both sides (observed on device with hciconfig
+	 * hanging forever in cancel_work_sync()). With the interrupt
+	 * disabled and the IRQ released the work cannot be rearmed, and a
+	 * work that was already pending simply drains once.
+	 */
 	cancel_work_sync(&bdev->txrx_work);
 
-	btmtksdio_fw_pmctrl(bdev);
+	sdio_claim_host(bdev->func);
+
+	/* On the MT7668 combo chip the Bluetooth function is kept powered
+	 * because it cannot be re-enabled once it has been turned off
+	 * (see btmtksdio_shutdown). For the same reason the SDIO function
+	 * must stay enabled and the driver must keep its ownership here:
+	 * tearing the function down makes the chip gate off the Bluetooth
+	 * core in a way a later re-open cannot recover from, and the
+	 * resulting failing handshakes wedge the CR4 the Wi-Fi function
+	 * is running on. The MediaTek vendor driver likewise never tears
+	 * the function down after the initial setup.
+	 */
+	if (bdev->data->chipid != 0x7668) {
+		btmtksdio_fw_pmctrl(bdev);
+		sdio_disable_func(bdev->func);
+	}
 
 	clear_bit(BTMTKSDIO_FUNC_ENABLED, &bdev->tx_state);
-	sdio_disable_func(bdev->func);
 
 	sdio_release_host(bdev->func);
 
 	return 0;
+}
+
+static int btmtksdio_close(struct hci_dev *hdev)
+{
+	struct btmtksdio_dev *bdev = hci_get_drvdata(hdev);
+
+	/* On the MT7668 the MediaTek vendor driver never touches the
+	 * hardware when Bluetooth is turned off -- its power-off path is a
+	 * pure software state change -- and on this chip it has to be
+	 * that way: poking the hardware here (disabling the chip
+	 * interrupt, releasing the IRQ, stopping the work) while the
+	 * firmware keeps running leaves the SDIO engine in a state the
+	 * next open cannot recover from. On device every re-open after
+	 * such a close found the function query reporting off or answered
+	 * with a flood of garbage packets, and the retry path failed from
+	 * then on. Keep the function, interrupts, IRQ and work exactly as
+	 * they are; btmtksdio_remove() still tears the hardware down
+	 * through btmtksdio_close_hw() before unload.
+	 */
+	if (bdev->data->chipid == 0x7668)
+		return 0;
+
+	return btmtksdio_close_hw(hdev);
 }
 
 static int btmtksdio_flush(struct hci_dev *hdev)
@@ -802,6 +875,23 @@ static int mt76xx_setup(struct hci_dev *hdev, const char *fwname)
 
 	if (status == BTMTK_WMT_PATCH_DONE) {
 		bt_dev_info(hdev, "Firmware already downloaded");
+		/* On the MT7668 a re-setup must stop right here. The function
+		 * was enabled by the first setup and is never turned off (the
+		 * close path is a pure software state change), and the
+		 * function query below is unreliable on this chip: it reports
+		 * off for the still-running function. Acting on that misreport
+		 * is fatal -- a WMT func ctrl enable sent to the already-on
+		 * function times out after 10 s and leaves the Bluetooth core
+		 * unresponsive, starving the shared CR4 the Wi-Fi function
+		 * runs on (observed on device: Bluetooth dead, Wi-Fi scans
+		 * timing out forever). The MediaTek vendor driver likewise
+		 * only ever configures the chip once at probe and never pokes
+		 * it again; the HCI init commands the Bluetooth stack issues
+		 * after setup wake and reinitialize the live firmware just
+		 * fine.
+		 */
+		if (bdev->data->chipid == 0x7668)
+			return 0;
 		goto ignore_setup_fw;
 	}
 
@@ -828,6 +918,14 @@ ignore_setup_fw:
 		goto ignore_func_on;
 	}
 
+	/* This enable command is only ever sent right after a fresh firmware
+	 * download above (or for chips that reported their function off at
+	 * probe time): the firmware was just (re)started and its function is
+	 * genuinely not enabled yet, which is the one state in which the
+	 * command is proven to work. On the MT7668 it must never be sent in
+	 * any other state -- see the firmware query handling above.
+	 */
+
 	/* Enable Bluetooth protocol */
 	wmt_params.op = BTMTK_WMT_FUNC_CTRL;
 	wmt_params.flag = 0;
@@ -844,7 +942,16 @@ ignore_setup_fw:
 	set_bit(BTMTKSDIO_PATCH_ENABLED, &bdev->tx_state);
 
 ignore_func_on:
-	/* Apply the low power environment setup */
+	/* Apply the low power environment setup. The MT7668 must keep
+	 * the common values here: the vendor SDIO sleep mode 0x3 with
+	 * 640 ms host durations lets the CR4 -- shared with the Wi-Fi
+	 * function -- enter a sleep state the system cannot recover
+	 * from. On device the Wi-Fi command path stalls a second after
+	 * Bluetooth setup completes (commands starved of TX resources,
+	 * debug PC stuck), and a later Bluetooth re-open finds the chip
+	 * asleep: the function query reports off and commands are
+	 * answered with garbage packets.
+	 */
 	tci_sleep.mode = 0x5;
 	tci_sleep.duration = cpu_to_le16(0x640);
 	tci_sleep.host_duration = cpu_to_le16(0x640);
@@ -1205,17 +1312,30 @@ static int btmtksdio_shutdown(struct hci_dev *hdev)
 	if (test_bit(BTMTKSDIO_HW_RESET_ACTIVE, &bdev->tx_state))
 		goto ignore_wmt_cmd;
 
-	/* Disable the device */
-	wmt_params.op = BTMTK_WMT_FUNC_CTRL;
-	wmt_params.flag = 0;
-	wmt_params.dlen = sizeof(param);
-	wmt_params.data = &param;
-	wmt_params.status = NULL;
+	/* The MT7668 is a Wi-Fi/Bluetooth combo chip whose Bluetooth
+	 * function shares the CR4 processor and its data RAM with the
+	 * Wi-Fi function. Powering the Bluetooth function off here leaves
+	 * the chip in a state that a plain WMT func ctrl power-on at the
+	 * next setup cannot recover from: the enable command times out
+	 * and the device eventually even stops granting driver ownership,
+	 * which breaks every re-open until the chip is power cycled.
+	 * Keep the function powered instead -- the same model the
+	 * MediaTek vendor driver uses, where Bluetooth is powered on once
+	 * at setup and is never turned off afterwards.
+	 */
+	if (bdev->data->chipid != 0x7668) {
+		/* Disable the device */
+		wmt_params.op = BTMTK_WMT_FUNC_CTRL;
+		wmt_params.flag = 0;
+		wmt_params.dlen = sizeof(param);
+		wmt_params.data = &param;
+		wmt_params.status = NULL;
 
-	err = mtk_hci_wmt_sync(hdev, &wmt_params);
-	if (err < 0) {
-		bt_dev_err(hdev, "Failed to send wmt func ctrl (%d)", err);
-		return err;
+		err = mtk_hci_wmt_sync(hdev, &wmt_params);
+		if (err < 0) {
+			bt_dev_err(hdev, "Failed to send wmt func ctrl (%d)", err);
+			return err;
+		}
 	}
 
 ignore_wmt_cmd:
@@ -1460,9 +1580,9 @@ static void btmtksdio_remove(struct sdio_func *func)
 
 	hdev = bdev->hdev;
 
-	/* Make sure to call btmtksdio_close before removing sdio card */
+	/* Make sure to call btmtksdio_close_hw before removing sdio card */
 	if (test_bit(BTMTKSDIO_FUNC_ENABLED, &bdev->tx_state))
-		btmtksdio_close(hdev);
+		btmtksdio_close_hw(hdev);
 
 	/* Be consistent the state in btmtksdio_probe */
 	pm_runtime_get_noresume(bdev->dev);

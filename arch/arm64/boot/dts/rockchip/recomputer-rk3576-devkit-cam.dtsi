@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Board-level camera connector description for the Seeed Studio
+ * ReComputer RK3576 Dev Kit.
+ *
+ * The 6.1 BSP media graph uses CSI/CIF/ISP nodes that are not exposed by
+ * this 6.18 tree, so only board-local supplies, clocks and I2C devices are
+ * carried over here. Sensor nodes stay disabled until matching media graph
+ * nodes are available in the target kernel.
+ */
+
+/ {
+	cam0_pwr: cam0-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_pwr";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio_xten 0 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	cam1_pwr: cam1-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1_pwr";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	cam0_rst: cam0-rst {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_rst";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio3 RK_PC7 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	cam1_rst: cam1-rst {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1_rst";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	clk_cam_24m: external-camera-clock-24m {
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+		clock-output-names = "clk_cam_24m";
+		#clock-cells = <0>;
+		status = "disabled";
+	};
+
+	clk_cam_24m_1: external-camera-clock-24m-1 {
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+		clock-output-names = "clk_cam_24m_1";
+		#clock-cells = <0>;
+		status = "disabled";
+	};
+};
+
+&i2c7 {
+	pinctrl-0 = <&i2c7m1_xfer>;
+	status = "disabled";
+
+	imx219_0: camera@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+		clocks = <&clk_cam_24m>;
+		clock-names = "xvclk";
+		vana-supply = <&cam0_pwr>;
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "rpi-camera-v2";
+		rockchip,camera-module-lens-name = "default";
+		status = "disabled";
+	};
+
+	dw9817_0: lens@c {
+		compatible = "dongwoon,dw9800w";
+		reg = <0x0c>;
+		VDD-supply = <&cam0_rst>;
+		power-supply = <&cam0_pwr>;
+		rockchip,camera-module-index = <0>;
+		rockchip,vcm-start-current = <10>;
+		rockchip,vcm-rated-current = <85>;
+		rockchip,vcm-step-mode = <5>;
+		rockchip,camera-module-facing = "back";
+		status = "disabled";
+	};
+
+	imx708_0: camera@1a {
+		compatible = "sony,imx708";
+		reg = <0x1a>;
+		clocks = <&clk_cam_24m>;
+		clock-names = "xclk";
+		vana1-supply = <&cam0_pwr>;
+		lens-focus = <&dw9817_0>;
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "front";
+		rockchip,camera-module-name = "rpi-camera-v3";
+		rockchip,camera-module-lens-name = "default";
+		status = "disabled";
+	};
+};
+
+&i2c2 {
+	status = "disabled";
+
+	imx219_1: camera@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+		clocks = <&clk_cam_24m_1>;
+		clock-names = "xvclk";
+		vana-supply = <&cam1_pwr>;
+		rockchip,camera-module-index = <1>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "rpi-camera-v2";
+		rockchip,camera-module-lens-name = "default";
+		status = "disabled";
+	};
+
+	dw9817_1: lens@c {
+		compatible = "dongwoon,dw9800w";
+		reg = <0x0c>;
+		VDD-supply = <&cam1_rst>;
+		power-supply = <&cam1_pwr>;
+		rockchip,camera-module-index = <1>;
+		rockchip,vcm-start-current = <10>;
+		rockchip,vcm-rated-current = <85>;
+		rockchip,vcm-step-mode = <5>;
+		rockchip,camera-module-facing = "back";
+		status = "disabled";
+	};
+
+	imx708_1: camera@1a {
+		compatible = "sony,imx708";
+		reg = <0x1a>;
+		clocks = <&clk_cam_24m_1>;
+		clock-names = "xclk";
+		vana1-supply = <&cam1_pwr>;
+		lens-focus = <&dw9817_1>;
+		rockchip,camera-module-index = <1>;
+		rockchip,camera-module-facing = "front";
+		rockchip,camera-module-name = "rpi-camera-v3";
+		rockchip,camera-module-lens-name = "default";
+		status = "disabled";
+	};
+};

@@ -78,12 +78,49 @@
 		reset-gpios = <&gpio2 RK_PB1 GPIO_ACTIVE_LOW>;
 	};
 
+	/*
+	 * Analog audio (3.5mm AV jack) via the RK809 built-in codec.
+	 * The codec DAI is exposed by the PMIC MFD node itself (&rk809).
+	 */
+	rk809_sound: rk809-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "Analog RK809";
+		simple-audio-card,mclk-fs = <256>;
+
+		simple-audio-card,widgets =
+			"Headphone", "Headphones";
+		simple-audio-card,routing =
+			"Headphones", "HPOL",
+			"Headphones", "HPOR";
+
+		/*
+		 * Jack detect is wired to GPIO0_B7. Polarity is unverified on
+		 * real hardware, so detection is left off: without it the
+		 * headphone path stays permanently enabled, which is the safe
+		 * default for a box whose only analog output is the AV jack.
+		 * To enable, uncomment and check the flag against the board.
+		 */
+		/* simple-audio-card,hp-det-gpios = <&gpio0 RK_PB7 GPIO_ACTIVE_HIGH>; */
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_8ch>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&rk809>;
+		};
+	};
+
+	/* MD1000 has no S/PDIF connector; kept for reference, disabled. */
 	spdif_dit: spdif-dit {
+		status = "disabled";
 		compatible = "linux,spdif-dit";
 		#sound-dai-cells = <0>;
 	};
 
 	spdif_sound: spdif-sound {
+		status = "disabled";
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "SPDIF";
 
@@ -258,6 +295,23 @@
 		regulator-settling-time-up-us = <250>;
 		pwm-supply = <&vcc5v0_sys>;
 	};
+
+	/*
+	 * Enable line for the external audio amplifier feeding the AV jack.
+	 * The vendor kernel drives this from the codec (spk-ctl-gpios), which
+	 * mainline rk817_codec does not support, so hold it on via a regulator.
+	 */
+	vcc_amp: regulator-vcc-amp {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_amp";
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&spk_ctl_h>;
+		vin-supply = <&vcc3v3_sys>;
+	};
 };
 
 &combphy1 {
@@ -344,11 +398,51 @@
 	status = "okay";
 };
 
+&i2c0 {
+	status = "okay";
+
+	/*
+	 * RK809 PMIC. Only the built-in audio codec is described here: the
+	 * board's core rails are modelled by the fixed/PWM regulators above
+	 * and left at their power-on defaults, so no "regulators" subnode is
+	 * added on purpose - adding one would take over the live power tree.
+	 */
+	rk809: pmic@20 {
+		compatible = "rockchip,rk809";
+		reg = <0x20>;
+
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PA3 IRQ_TYPE_LEVEL_LOW>;
+
+		clocks = <&cru I2S1_MCLKOUT_TX>;
+		clock-names = "mclk";
+		assigned-clocks = <&cru I2S1_MCLKOUT_TX>;
+		assigned-clock-parents = <&cru CLK_I2S1_8CH_TX>;
+		#clock-cells = <1>;
+		#sound-dai-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pmic_int>, <&i2s1m0_mclk>;
+
+		rockchip,mic-in-differential;
+		wakeup-source;
+	};
+};
+
 &i2s0_8ch {
 	status = "okay";
 };
 
 &i2s1_8ch {
+	/*
+	 * TRCM (clk-trcm) shares one clock line for TX and RX, so only the TX
+	 * pins are wired. Override the SoC default pin group (which also claims
+	 * sclkrx on GPIO1_A4) to match the vendor Android DT and free GPIO1_A4
+	 * for the external amplifier enable (vcc_amp). MCLK lives on &rk809.
+	 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s1m0_sclktx &i2s1m0_lrcktx
+		     &i2s1m0_sdi0 &i2s1m0_sdo0>;
 	rockchip,trcm-sync-tx-only;
 	status = "okay";
 };
@@ -407,6 +501,22 @@
 	ir {
 		ir_int: ir-int {
 			rockchip,pins = <4 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	pmic {
+		pmic_int: pmic-int {
+			rockchip,pins = <0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+
+	sound {
+		hp_det: hp-det {
+			rockchip,pins = <0 RK_PB7 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		spk_ctl_h: spk-ctl-h {
+			rockchip,pins = <1 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
@@ -484,7 +594,7 @@
 };
 
 &spdif {
-	status = "okay";
+	status = "disabled";
 };
 
 &spi1 {

@@ -1,0 +1,2 @@
+obj-$(CONFIG_AIC8800_SDIO_WLAN) += sdio/
+obj-$(CONFIG_AIC8800_USB_WLAN)  += usb/

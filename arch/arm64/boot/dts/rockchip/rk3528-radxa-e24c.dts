@@ -569,11 +569,11 @@
 	};
 };
 
-&u2phy {
+&usb2phy {
 	status = "okay";
 };
 
-&u2phy_host {
+&usb2phy_host {
 	/* Fix ME!
 	 * In the schematic, the power supply for USB host supply is actually
 	 * controlled by GPIO1_A3, The correct regulator vcc5v0_usb20 has also
@@ -586,7 +586,7 @@
 	status = "okay";
 };
 
-&u2phy_otg {
+&usb2phy_otg {
 	vbus-supply = <&vcc_3v3>;
 	status = "okay";
 };
@@ -612,9 +612,9 @@
  */
 &usb_host0_xhci {
 	dr_mode = "otg";
-	extcon = <&u2phy>;
+	extcon = <&usb2phy>;
 	maximum-speed = "high-speed";
-	phys = <&u2phy_otg>;
+	phys = <&usb2phy_otg>;
 	phy-names = "usb2-phy";
 	snps,dis_u2_susphy_quirk;
 	snps,usb2-lpm-disable;

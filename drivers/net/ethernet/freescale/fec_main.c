@@ -2494,8 +2494,19 @@ static int fec_enet_mii_probe(struct net_device *ndev)
 	} else {
 		/* check for attached phy */
 		phy_dev = phy_find_first(fep->mii_bus);
-		if (fep->dev_id && phy_dev)
-			phy_dev = phy_find_next(fep->mii_bus, phy_dev);
+		if (fep->dev_id && phy_dev) {
+			/* this tree's PHY core has no phy_find_next();
+			 * walk the bus manually for the next PHY */
+			struct phy_device *next = NULL;
+			int addr;
+
+			for (addr = phy_dev->mdio.addr + 1; addr < PHY_MAX_ADDR; addr++) {
+				next = mdiobus_get_phy(fep->mii_bus, addr);
+				if (next)
+					break;
+			}
+			phy_dev = next;
+		}
 
 		if (!phy_dev) {
 			netdev_info(ndev, "no PHY, assuming direct connection to switch\n");

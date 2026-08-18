@@ -107,9 +107,20 @@ typedef struct {
 	__u8 b[16];
 } guid_t;
 
+#if defined(__APPLE__)
+/*
+ * macOS system headers define uuid_t as an array type; use a private
+ * name here and map it via macro so mod_devicetable.h keeps working.
+ */
+typedef struct {
+	__u8 b[16];
+} mtd_uuid_t;
+#define uuid_t mtd_uuid_t
+#else
 typedef struct {
 	__u8 b[16];
 } uuid_t;
+#endif
 
 #define	UUID_STRING_LEN		36
 

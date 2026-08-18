@@ -14,7 +14,7 @@
 };
 
 /* eMMC */
-// Reduce the frequency from 200000000 to 100000000 to solve the emmc usage problem
+// Reduce the frequency from 200000000 to 50000000 to solve the emmc usage problem
 &sd_emmc_c {
-	max-frequency = <100000000>;
+	max-frequency = <50000000>;
 };

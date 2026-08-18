@@ -170,7 +170,8 @@ struct rockchip_usb2phy_port_cfg {
  * @reg: the address offset of grf for usb-phy config.
  * @num_ports: specify how many ports that the phy has.
  * @phy_tuning: phy default parameters tuning.
- * @clkout_ctl: keep on/turn off output clk of phy.
+ * @clkout_ctl: register to enable output clk of phy, when set in GRF
+ * @clkout_ctl_phy: register to enable output clk of phy, when set inside phy
  * @port_cfgs: usb-phy port configurations.
  * @chg_det: charger detection registers.
  */
@@ -1513,24 +1514,34 @@ static int rk3128_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 
 static int rk3528_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 {
-	int ret = 0;
+	int ret;
 
 	/* Turn off otg port differential receiver in suspend mode */
-	ret |= regmap_write(rphy->phy_base, 0x30, BIT(18) | 0x0000);
+	ret = regmap_write(rphy->phy_base, 0x30, BIT(18) | 0x0000);
+	if (ret)
+		return ret;
 
 	/* Turn off host port differential receiver in suspend mode */
-	ret |= regmap_write(rphy->phy_base, 0x430, BIT(18) | 0x0000);
+	ret = regmap_write(rphy->phy_base, 0x430, BIT(18) | 0x0000);
+	if (ret)
+		return ret;
 
 	/* Set otg port HS eye height to 400mv (default is 450mv) */
-	ret |= regmap_write(rphy->phy_base, 0x30, GENMASK(22, 20) | 0x0000);
+	ret = regmap_write(rphy->phy_base, 0x30, GENMASK(22, 20) | 0x0000);
+	if (ret)
+		return ret;
 
 	/* Set host port HS eye height to 400mv (default is 450mv) */
-	ret |= regmap_write(rphy->phy_base, 0x430, GENMASK(22, 20) | 0x0000);
+	ret = regmap_write(rphy->phy_base, 0x430, GENMASK(22, 20) | 0x0000);
+	if (ret)
+		return ret;
 
 	/* Choose the Tx fs/ls data as linestate from TX driver for otg port */
-	ret |= regmap_write(rphy->phy_base, 0x94, GENMASK(22, 19) | 0x0018);
+	ret = regmap_write(rphy->phy_base, 0x94, GENMASK(22, 19) | 0x0018);
+	if (ret)
+		return ret;
 
-	return ret;
+	return 0;
 }
 
 static int rk3576_usb2phy_tuning(struct rockchip_usb2phy *rphy)

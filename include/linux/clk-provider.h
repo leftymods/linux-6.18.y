@@ -666,7 +666,7 @@ struct clk *clk_register_regmap_gate(struct device *dev, const char *name,
 					    reg, bit_idx, clk_gate_flags,     \
 					    lock)			      \
 	__devm_clk_hw_register_gate((dev), NULL, (name), NULL, (parent_hw),   \
-				    NULL, (flags), (reg), (bit_idx),	      \
+				    NULL, (flags), NULL, 0, (reg), (bit_idx), \
 				    (clk_gate_flags), (lock))
 /**
  * devm_clk_hw_register_gate_parent_data - register a gate clock with the
@@ -684,8 +684,8 @@ struct clk *clk_register_regmap_gate(struct device *dev, const char *name,
 					      reg, bit_idx, clk_gate_flags,   \
 					      lock)			      \
 	__devm_clk_hw_register_gate((dev), NULL, (name), NULL, NULL,	      \
-				    (parent_data), (flags), (reg), (bit_idx), \
-				    (clk_gate_flags), (lock))
+				    (parent_data), (flags), NULL, 0, (reg),   \
+				    (bit_idx), (clk_gate_flags), (lock))
 
 void clk_unregister_gate(struct clk *clk);
 void clk_hw_unregister_gate(struct clk_hw *hw);

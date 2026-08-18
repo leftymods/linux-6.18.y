@@ -14,6 +14,22 @@
 #include <ctype.h>
 #include <limits.h>
 
+#if defined(__APPLE__)
+/*
+ * macOS has neither copy_file_range() nor O_LARGEFILE.  The cpio writer
+ * already falls back to a plain read/write loop when the copy fails, so
+ * just make it fail with ENOSYS.
+ */
+static ssize_t copy_file_range(int fd_in, void *off_in,
+			       int fd_out, void *off_out,
+			       size_t len, unsigned int flags)
+{
+	errno = ENOSYS;
+	return -1;
+}
+#define O_LARGEFILE 0
+#endif
+
 /*
  * Original work by Jeff Garzik
  *

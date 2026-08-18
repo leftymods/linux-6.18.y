@@ -101,6 +101,7 @@ struct rockchip_pm_domain {
 	struct clk_bulk_data *clks;
 	struct device_node *node;
 	struct regulator *supply;
+	bool is_always_on;
 };
 
 struct rockchip_pmu {
@@ -809,6 +810,9 @@ static int rockchip_pm_add_one_domain(struct rockchip_pmu *pmu,
 	pd->pmu = pmu;
 	pd->node = node;
 
+	if (of_property_read_bool(node, "rockchip,always-on"))
+		pd->is_always_on = true;
+
 	pd->num_clks = of_clk_get_parent_count(node);
 	if (pd->num_clks > 0) {
 		pd->clks = devm_kcalloc(pmu->dev, pd->num_clks,
@@ -892,7 +896,10 @@ static int rockchip_pm_add_one_domain(struct rockchip_pmu *pmu,
 	pd->genpd.power_on = rockchip_pd_power_on;
 	pd->genpd.attach_dev = rockchip_pd_attach_dev;
 	pd->genpd.detach_dev = rockchip_pd_detach_dev;
-	pd->genpd.flags = GENPD_FLAG_PM_CLK | GENPD_FLAG_NO_STAY_ON;
+	if (pd->is_always_on)
+		pd->genpd.flags = GENPD_FLAG_PM_CLK | GENPD_FLAG_ALWAYS_ON;
+	else
+		pd->genpd.flags = GENPD_FLAG_PM_CLK | GENPD_FLAG_NO_STAY_ON;
 	if (pd_info->active_wakeup)
 		pd->genpd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 	pm_genpd_init(&pd->genpd, NULL,

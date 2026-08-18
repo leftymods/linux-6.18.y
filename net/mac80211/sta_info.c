@@ -355,6 +355,15 @@ static void sta_info_free_link(struct link_sta_info *link_sta)
 	free_percpu(link_sta->pcpu_rx_stats);
 }
 
+static void sta_link_free_rcu(struct rcu_head *head)
+{
+	struct sta_link_alloc *alloc =
+		container_of(head, struct sta_link_alloc, rcu_head);
+
+	sta_info_free_link(&alloc->info);
+	kfree(alloc);
+}
+
 static void sta_accumulate_removed_link_stats(struct sta_info *sta, int link_id)
 {
 	struct link_sta_info *link_sta = wiphy_dereference(sta->local->hw.wiphy,
@@ -439,10 +448,8 @@ static void sta_remove_link(struct sta_info *sta, unsigned int link_id,
 
 	RCU_INIT_POINTER(sta->link[link_id], NULL);
 	RCU_INIT_POINTER(sta->sta.link[link_id], NULL);
-	if (alloc) {
-		sta_info_free_link(&alloc->info);
-		kfree_rcu(alloc, rcu_head);
-	}
+	if (alloc)
+		call_rcu(&alloc->rcu_head, sta_link_free_rcu);
 
 	ieee80211_sta_recalc_aggregates(&sta->sta);
 }
@@ -571,6 +578,20 @@ static int sta_info_alloc_link(struct ieee80211_local *local,
 	link_info->rx_omi_bw_rx = IEEE80211_STA_RX_BW_MAX;
 	link_info->rx_omi_bw_tx = IEEE80211_STA_RX_BW_MAX;
 	link_info->rx_omi_bw_staging = IEEE80211_STA_RX_BW_MAX;
+
+	/*
+	 * This will always be taken into account, so set to MAX.
+	 * When mac80211 is the client on a UHR AP, it'll be used
+	 * for the TX side, to limit the bandwidth to TX to the AP
+	 * with, to limit to the BSS width during DBE enablement.
+	 *
+	 * This is needed since the chanreq, which normally has
+	 * maximum bandwidth to use with the AP, will already be
+	 * set to the DBE width during enablement to prepare for
+	 * RX (and not be racy), but the TX can only use higher
+	 * bandwidth after enablement finishes.
+	 */
+	link_info->uhr_usable_tx_width = IEEE80211_STA_RX_BW_MAX;
 
 	link_info->op_mode_bw = IEEE80211_STA_RX_BW_MAX;
 
@@ -2605,6 +2626,13 @@ static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 		if (STA_STATS_GET(UHR_IM, rate))
 			rinfo->flags |= RATE_INFO_FLAGS_UHR_IM;
 		break;
+	case STA_STATS_RATE_TYPE_S1G:
+		rinfo->flags = RATE_INFO_FLAGS_S1G_MCS;
+		rinfo->mcs = STA_STATS_GET(S1G_MCS, rate);
+		rinfo->nss = STA_STATS_GET(S1G_NSS, rate);
+		if (STA_STATS_GET(SGI, rate))
+			rinfo->flags |= RATE_INFO_FLAGS_SHORT_GI;
+		break;
 	}
 }
 
@@ -3258,7 +3286,10 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo,
 		struct link_sta_info *link_sta;
 		int link_id;
 
-		ether_addr_copy(sinfo->mld_addr, sta->addr);
+		sinfo->mlo_params_valid = true;
+		sinfo->assoc_link_id = sta->deflink.link_id;
+		if (sta->sta.mlo)
+			ether_addr_copy(sinfo->mld_addr, sta->addr);
 
 		/* assign valid links first for iteration */
 		sinfo->valid_links = sta->sta.valid_links;
@@ -3516,6 +3547,23 @@ static u8 ieee80211_sta_nss_capability(struct link_sta_info *link_sta)
 void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
 				    struct cfg80211_chan_def *chandef)
 {
+	/*
+	 * TODO: The entirety of the STA Tx/Rx bandwidth handling
+	 * assumes 20MHz based widths, so for now don't initialise
+	 * pubsta->bandwidth for S1G bands. Since enum
+	 * ieee80211_sta_rx_bandwidth is ordered, we will probably
+	 * need to introduce ieee80211_s1g_sta_rx_bandwidth with
+	 * S1G widths and associated S1G specific code. Additionally,
+	 * existing S1G hardware is all 1SS, in the future if hardware
+	 * starts supporting >1SS this should be implemented in
+	 * ieee80211_sta_nss_capability().
+	 */
+	if (cfg80211_chandef_is_s1g(chandef)) {
+		link_sta->capa_nss = 1;
+		link_sta->pub->rx_nss = 1;
+		return;
+	}
+
 	link_sta->capa_nss = ieee80211_sta_nss_capability(link_sta);
 	link_sta->pub->rx_nss = link_sta->capa_nss;
 
@@ -3660,10 +3708,14 @@ ieee80211_sta_usable_bw(struct link_sta_info *link_sta,
 	if (WARN_ON(!link))
 		return IEEE80211_STA_RX_BW_20;
 
-	if (link_sta->pub->eht_cap.has_eht)
-		return bw;
+	if (!link_sta->pub->eht_cap.has_eht)
+		return min(bw, link->bss_bw.he_and_lower);
 
-	return min(bw, link->bss_bw.he_and_lower);
+	if (!link_sta->pub->uhr_cap.has_uhr ||
+	    !link_sta->uhr_dbe_enabled)
+		return min(bw, link->bss_bw.eht);
+
+	return bw;
 }
 
 static enum ieee80211_sta_rx_bandwidth
@@ -3700,6 +3752,8 @@ ieee80211_sta_current_bw_tx_to_sta(struct link_sta_info *link_sta,
 	bw = min(bw, link_sta->op_mode_bw);
 	/* also limit to RX OMI bandwidth we TX to the STA */
 	bw = min(bw, link_sta->rx_omi_bw_tx);
+	/* and UHR DBE transition limits */
+	bw = min(bw, link_sta->uhr_usable_tx_width);
 
 	/* Don't consider AP's bandwidth for TDLS peers, section 11.23.1 of
 	 * IEEE80211-2016 specification makes higher bandwidth operation
@@ -3747,4 +3801,27 @@ ieee80211_sta_current_bw(struct link_sta_info *link_sta,
 
 	/* unreachable */
 	return IEEE80211_STA_RX_BW_20;
+}
+
+bool ieee80211_link_sta_update_rc_bw(struct ieee80211_link_data *link,
+				     struct link_sta_info *link_sta)
+{
+	struct ieee80211_sub_if_data *sdata = link->sdata;
+	struct ieee80211_supported_band *sband;
+	enum ieee80211_sta_rx_bandwidth new_bw;
+	enum nl80211_band band;
+
+	band = link->conf->chanreq.oper.chan->band;
+	sband = sdata->local->hw.wiphy->bands[band];
+
+	new_bw = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					  IEEE80211_STA_BW_TX_TO_STA);
+	if (link_sta->pub->bandwidth == new_bw)
+		return false;
+
+	link_sta->pub->bandwidth = new_bw;
+	rate_control_rate_update(sdata->local, sband, link_sta,
+				 IEEE80211_RC_BW_CHANGED);
+
+	return true;
 }

@@ -1,0 +1,11 @@
+config AIC8800_SUPPORT
+    bool "AIC8800 Support"
+    default y
+    depends on WLAN_VENDOR_AIC
+    help
+      Support for AIC8800 series wireless chips.
+
+if AIC8800_SUPPORT
+source "drivers/net/wireless/aicsemi/aic8800/sdio/Kconfig"
+source "drivers/net/wireless/aicsemi/aic8800/usb/Kconfig"
+endif

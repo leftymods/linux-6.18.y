@@ -260,3 +260,7 @@
 		reg = <0x12 0x10>;
 	};
 };
+
+&pwm_AO_ab {
+	status = "disabled";
+};

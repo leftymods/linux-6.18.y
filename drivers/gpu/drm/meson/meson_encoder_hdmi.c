@@ -134,6 +134,16 @@ static enum drm_mode_status meson_encoder_hdmi_mode_valid(struct drm_bridge *bri
 
 	dev_dbg(priv->dev, "Modeline " DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
 
+	/*
+	 * The 594MHz 4K50/60 paths are unstable on GXL (including GXLX2
+	 * such as the S905L3): the picture flickers with both the full
+	 * bandwidth and the YUV420 timings. Reject every mode above the
+	 * 4K30 pixel clock so these SoCs fall back to 4K30 or lower.
+	 */
+	if (meson_vpu_is_compatible(priv, VPU_COMPATIBLE_GXL) &&
+	    mode->clock > 340800)
+		return MODE_CLOCK_HIGH;
+
 	/* If sink does not support 540MHz, reject the non-420 HDMI2 modes */
 	if (display_info->max_tmds_clock &&
 	    mode->clock > display_info->max_tmds_clock &&

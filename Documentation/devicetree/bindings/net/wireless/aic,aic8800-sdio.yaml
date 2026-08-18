@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/wireless/aic,aic8800-sdio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: AIC8800 WiFi SDIO controller
+
+description:
+  This binding describes the WiFi portion of the AIC8800 WiFi/BT combo chip,
+  attached via SDIO. The Bluetooth portion is described in a separate
+  binding (aic,aic8800-bt.yaml).
+
+maintainers:
+  - AICSemi <aic@aicsemi.com>
+
+allOf:
+  - $ref: /schemas/net/wireless/wireless-controller.yaml#
+
+properties:
+  compatible:
+    const: aic,aic8800-sdio
+
+  reg:
+    description: SDIO function number, usually 1.
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description:
+      Out-of-band (OOB) IRQ line for waking up the host in response to WLAN
+      activity. This corresponds to the WIFI_WAKE_HOST line of the chip.
+
+  interrupt-names:
+    const: host-wake
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    mmc {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        wifi@1 {
+            compatible = "aic,aic8800-sdio";
+            reg = <1>;
+            interrupt-parent = <&gpio1>;
+            interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+            interrupt-names = "host-wake";
+        };
+    };

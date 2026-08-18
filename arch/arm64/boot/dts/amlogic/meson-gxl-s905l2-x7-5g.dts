@@ -27,3 +27,44 @@
 	interrupt-names = "gp", "gpmmu", "pp", "pmu",
 		"pp0", "ppmmu0", "pp1", "ppmmu1";
 };
+
+/*
+ * The S905L2 is a lower-binned GXL chip and the Mali voltage rail is
+ * not controllable on this board (no mali-supply, so the OPP voltages
+ * are never applied). The top OPPs inherited from the S905W/X reference
+ * design are unstable: the system crashes at 744MHz. Limit the GPU to
+ * 500MHz.
+ */
+&gpu_opp_table {
+	opp-666666666 {
+		status = "disabled";
+	};
+
+	opp-744000000 {
+		status = "disabled";
+	};
+};
+
+/* eMMC */
+&sd_emmc_c {
+	status = "okay";
+	bus-width = <8>;
+	cap-mmc-highspeed;
+	max-frequency = <25000000>;
+};
+
+/* GXLX2: DW-HDMI is directly mapped at 0xda800000, not via the legacy 0xc883a000 window */
+&hdmi_tx {
+	reg = <0x0 0xda800000 0x0 0x10000>;
+};
+
+/* MT7668RSN SDIO WiFi + Bluetooth combo chip. */
+&sd_emmc_a {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mt7668: wifi@1 {
+		compatible = "mediatek,mt7668";
+		reg = <1>;
+	};
+};

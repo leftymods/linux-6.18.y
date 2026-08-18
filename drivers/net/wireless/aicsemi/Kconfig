@@ -1,0 +1,9 @@
+config WLAN_VENDOR_AIC
+        bool "AICSemi devices"
+        default y
+        help
+          If you have a wireless card belonging to this class, say Y.
+
+if WLAN_VENDOR_AIC
+source "drivers/net/wireless/aicsemi/aic8800/Kconfig"
+endif

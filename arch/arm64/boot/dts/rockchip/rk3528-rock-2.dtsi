@@ -286,11 +286,11 @@
 	status = "okay";
 };
 
-&u2phy {
+&usb2phy {
 	status = "okay";
 };
 
-&u2phy_host {
+&usb2phy_host {
 	phy-supply = <&vcc5v0_usb20>;
 	status = "okay";
 };
