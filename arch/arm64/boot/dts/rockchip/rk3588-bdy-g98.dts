@@ -325,30 +325,16 @@
 	vpcie3v3-supply = <&vcc3v3_nvme>;
 	status = "okay";
 
-	/*
-	 * Workaround for units shipped with a blank RTL8125 config EEPROM.
-	 * The chip's default LEDSEL then assigns each LED pin a single link
-	 * speed (LED1=100M, LED2=1000M, LED3=2.5G), but this board wires
-	 * its RJ45 LEDs to LED1/LED2, so they stay dark at 2.5G. Program
-	 * all four pins identically: LED on at any link speed, blink on activity.
-	 *
-	 * LEDSEL bits: 0=Link10M 1=Link100M 3=Link1000M 5=Link2.5G 9=ACT
-	 * 12=active-low (unused, this board is active-high).
-	 *
-	 * The node hierarchy must mirror the PCI topology: pcie@0,0 below
-	 * is the root port (0002:20:00.0) and ethernet@0,0 under it is the
-	 * RTL8125 endpoint (0002:21:00.0). A flat pcie@0,0 carrying the
-	 * properties directly here would be claimed by the root port
-	 * instead, because of_pci_find_child_device() matches by devfn only.
-	 */
 	pcie@0,0 {
-		reg = <0x0000 0 0 0 0>;
+		reg = <0x00200000 0 0 0 0>;
 		#address-cells = <3>;
 		#size-cells = <2>;
+		bus-range = <0x20 0x2f>;
+		device_type = "pci";
 		ranges;
 
 		ethernet@0,0 {
-			reg = <0x0000 0 0 0 0>;
+			reg = <0x00210000 0 0 0 0>;
 			r8125,led0 = <0x22b>;
 			r8125,led1 = <0x22b>;
 			r8125,led2 = <0x22b>;
@@ -368,13 +354,15 @@
 
 	/* Same blank-EEPROM LED fix as pcie2x1l0 (endpoint 0003:31:00.0) */
 	pcie@0,0 {
-		reg = <0x0000 0 0 0 0>;
+		reg = <0x00300000 0 0 0 0>;
 		#address-cells = <3>;
 		#size-cells = <2>;
+		bus-range = <0x30 0x3f>;
+		device_type = "pci";
 		ranges;
 
 		ethernet@0,0 {
-			reg = <0x0000 0 0 0 0>;
+			reg = <0x00310000 0 0 0 0>;
 			r8125,led0 = <0x22b>;
 			r8125,led1 = <0x22b>;
 			r8125,led2 = <0x22b>;
@@ -468,8 +456,6 @@
 	supports-emmc;
 	non-removable;
 	mmc-hs200-1_8v;
-	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
 	status = "okay";
 };
 

@@ -747,15 +747,14 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
 	writel(v | 0x01, priv->ioaddr + EMAC_BASIC_CTL1);
 
 	/* The timeout was previously set to 10ms, but some board (OrangePI0)
-	 * need more if no cable plugged. 100ms seems OK
+	 * need more if no cable plugged.
 	 */
 	err = readl_poll_timeout(priv->ioaddr + EMAC_BASIC_CTL1, v,
-				 !(v & 0x01), 100, 100000);
+				 !(v & 0x01), 100, 1000000);
 
-	if (err) {
-		dev_err(priv->device, "EMAC reset timeout\n");
-		return err;
-	}
+	if (err)
+		dev_err(priv->device, "EMAC reset timeout (BASIC_CTL1=0x%08x), continuing\n",
+			readl(priv->ioaddr + EMAC_BASIC_CTL1));
 	return 0;
 }
 

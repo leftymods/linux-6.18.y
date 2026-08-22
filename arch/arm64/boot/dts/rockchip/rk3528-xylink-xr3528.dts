@@ -64,21 +64,21 @@
 
 		pwm_led_red: pwm-led-red {
 			color = <LED_COLOR_ID_RED>;
-			pwms = <&pwm4 0 5000 0>;
+			pwms = <&pwm4 0 1000000 0>;
 			max-brightness = <255>;
 			default-state = "off";
 		};
 
 		pwm_led_green: pwm-led-green {
 			color = <LED_COLOR_ID_GREEN>;
-			pwms = <&pwm5 0 5000 0>;
+			pwms = <&pwm5 0 1000000 0>;
 			max-brightness = <255>;
 			default-state = "off";
 		};
 
 		pwm_led_blue: pwm-led-blue {
 			color = <LED_COLOR_ID_BLUE>;
-			pwms = <&pwm0 0 5000 0>;
+			pwms = <&pwm0 0 1000000 0>;
 			max-brightness = <255>;
 			default-state = "off";
 		};
@@ -336,35 +336,35 @@
 
 /* rgb led: blue */
 &pwm0 {
-	pinctrl-names = "defaults";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pwm0m0_pins>;
 	status = "okay";
 };
 
 /* vdd_arm */
 &pwm1 {
-	pinctrl-names = "defaults";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pwm1m0_pins>;
 	status = "okay";
 };
 
 /* vdd_logic */
 &pwm2 {
-	pinctrl-names = "defaults";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pwm2m0_pins>;
 	status = "okay";
 };
 
 /* rgb led: red */
 &pwm4 {
-	pinctrl-names = "defaults";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pwm4m0_pins>;
 	status = "okay";
 };
 
 /* rgb led: green */
 &pwm5 {
-	pinctrl-names = "defaults";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pwm5m0_pins>;
 	status = "okay";
 };

@@ -274,7 +274,17 @@
 
 		syscon: syscon@3000000 {
 			compatible = "allwinner,sun50i-h616-system-control";
-			reg = <0x03000000 0x30>,<0x03000038 0x0fc8>;
+			/*
+			 * This tree's emac0/emac1 nodes use the old-style
+			 * "syscon = <&syscon [1]>" phandle, so the EMAC clock
+			 * registers at 0x3000030/0x3000034 are accessed through
+			 * this node's regmap (provided by sunxi_sram).  The
+			 * upstream split range only exists to let new-style
+			 * emac-clk child nodes claim 0x30/0x34 themselves;
+			 * this tree has no such children, so keep the full
+			 * range mapped and avoid the 0x30-0x37 hole.
+			 */
+			reg = <0x03000000 0x1000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
