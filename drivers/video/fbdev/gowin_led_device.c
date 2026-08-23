@@ -154,6 +154,9 @@ struct gowin_priv {
 	unsigned int erase_attempts;
 	unsigned int prog_attempts;
 
+	/* deferred firmware flash: probe must not block for seconds */
+	struct work_struct fw_flash_work;
+
 	/* pinctrl */
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_default;
@@ -1396,6 +1399,16 @@ static int lp_update_firmware(struct gowin_priv *priv,
 	return ret;
 }
 
+static int lp_handle_firmware_update(struct gowin_priv *priv);
+
+static void lp_fw_flash_worker(struct work_struct *work)
+{
+	struct gowin_priv *priv = container_of(work, struct gowin_priv,
+					       fw_flash_work);
+
+	lp_handle_firmware_update(priv);
+}
+
 static bool jtag_pins_available(struct gowin_priv *priv)
 {
 	bool ok = true;
@@ -2045,10 +2058,16 @@ static int probe(struct spi_device *spi)
 	if (ret)
 		goto err_touch;
 
-	/* Firmware update */
-	lp_handle_firmware_update(priv);
+	/* Firmware update runs asynchronously: the app protocol returns
+	 * -EBUSY while JTAG owns the pins, so early framebuffer writes
+	 * fail cleanly instead of stalling boot for seconds */
+	INIT_WORK(&priv->fw_flash_work, lp_fw_flash_worker);
+	snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status), "queued");
+	schedule_work(&priv->fw_flash_work);
 
-	dev_info(dev, "led panel probed: %dx%d\n", priv->width, priv->height);
+	dev_info(dev,
+		 "led panel probed: %dx%d (firmware check queued)\n",
+		 priv->width, priv->height);
 	return 0;
 
 err_touch:
@@ -2073,6 +2092,7 @@ static void remove(struct spi_device *spi)
 {
 	struct gowin_priv *priv = spi_get_drvdata(spi);
 
+	cancel_work_sync(&priv->fw_flash_work);
 	sysfs_remove_groups(&priv->dev->kobj, lp_attr_groups);
 	deinit_touch(priv);
 	uart_exit(priv);
