@@ -1201,6 +1201,22 @@ config SND_SOC_ES8311
 	tristate "Everest Semi ES8311 CODEC"
 	depends on I2C
 
+config SND_SOC_ES7210
+	tristate "Everest Semi ES7210 four-channel audio ADC"
+	depends on I2C
+	help
+	  Enable support for the Everest ES7210 four-channel audio
+	  ADC (I2S/TDM capture). Used on AtriStation for the
+	  microphone/feedback path.
+
+config SND_SOC_ES8156
+	tristate "Everest Semi ES8156 CODEC"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Enable support for the Everest ES8156 DAC codec.
+	  Used on AtriStation as an external I2S DAC.
+
 config SND_SOC_ES8316
 	tristate "Everest Semi ES8316 CODEC"
 	depends on I2C
