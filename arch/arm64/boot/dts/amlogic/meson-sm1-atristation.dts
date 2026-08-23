@@ -79,6 +79,8 @@
 		vin-supply = <&dc_in>;
 	};
 
+	/* Station 2 has no microSD slot; GPIOAO_3 is the Zigbee UART RX
+	 * (stock DTB: uart_ao_b rx_b_3). Node kept disabled for reference. */
 	tflash_vdd: regulator-tflash_vdd {
 		compatible = "regulator-fixed";
 		regulator-name = "TFLASH_VDD";
@@ -88,7 +90,7 @@
 		gpio = <&gpio_ao GPIOAO_3 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
-	};
+		status = "disabled";	};
 
 	flash_1v8: regulator-flash_1v8 {
 		compatible = "regulator-fixed";
@@ -361,11 +363,12 @@
 
 	/* Zigbee radio reset/boot control
 	 * Matches pastebin "zigbee": zb-reset=GPIOX_17, zb-boot=GPIOX_11 */
+	/* Tuya TZ9213-2782 Zigbee module (stock: zb-reset=X17, zb-boot=X11) */
 	zigbee-control {
 		compatible = "yandex,zigbee-control";
 		reset-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
 		boot-gpios = <&gpio GPIOX_11 GPIO_ACTIVE_HIGH>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	/* Bluetooth: matches vendor DTB gpio_reset=0x16 0x53,
@@ -1323,9 +1326,14 @@
 /* Zigbee radio on UART_AO_B (GPIOAO_8 TX, GPIOAO_9 RX)
  * Disabled: GPIOAO_8 conflicts with tdm_ao_b_sclk needed for audio TDM B.
  * Enable only if Zigbee module is populated and audio TDM B moved to different pins. */
+/* Zigbee radio (Tuya TZ9213-2782 module) on UART_AO_B.
+ * Stock DTB routes it to pins 2/3 (uart_ao_b_2_3_pins), which do NOT
+ * conflict with audio TDM-B (AO4/6/7/8 + MCLK AO9).
+ * No serdev driver: userspace talks to /dev/ttyAML1 directly
+ * (coordinator firmware flash + NCP passthrough). */
 &uart_AO_B {
-	status = "disabled";
-	pinctrl-0 = <&uart_ao_b_8_9_pins>;
+	status = "okay";
+	pinctrl-0 = <&uart_ao_b_2_3_pins>;
 	pinctrl-names = "default";
 };
 
