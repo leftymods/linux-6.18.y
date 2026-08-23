@@ -332,22 +332,20 @@
 		regulator-always-on;
 	};
 
-	/* SY6045S amplifier 20V supply enable (GPIOX_10).
-	 * NOT boot-on/always-on: the sy6045s driver enables PVDD itself,
-	 * after the amp is configured and muted (anti-pop sequencing).
-	 * OPEN QUESTION vs stock DTB: vendor gpio_ampl_pwr was GPIOAO_10;
-	 * verify with a multimeter on hardware — if PVDD stays 0V during
-	 * probe, switch gpio to <&gpio_ao GPIOAO_10 ...> here. */
+	/* SY6045S amplifier 20V supply enable.
+	 * Pin verified against the original Yandex DTB: gpio_ampl_pwr =
+	 * GPIOAO_10, initial low (vendor userspace raises it after DSP
+	 * init). The sy6045s driver now owns this sequencing (anti-pop),
+	 * so the regulator enables it at step 4 of probe.
+	 * NOTE: laser-encoder phase B shares this pad in the stock
+	 * routing — with the rail gated, rotary-poll cannot claim it;
+	 * see docs/atristation-hardware.md */
 	amp_20v: regulator-20v-amp {
 		compatible = "regulator-fixed";
 		regulator-name = "20V_AMPL";
 		regulator-min-microvolt = <20000000>;
 		regulator-max-microvolt = <20000000>;
-		/* ПРОВЕРКА НА ЖЕЛЕЗЕ: если после 'anti-pop: steps 4-5' (dmesg)
-	 * на PVDD усилителей нет ~20В — заменить строку ниже на:
-	 *   gpio = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-	 * и закомментировать фазу B в extensions/rotary-poll.c */
-	gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
