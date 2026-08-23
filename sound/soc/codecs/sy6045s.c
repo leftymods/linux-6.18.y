@@ -44,22 +44,28 @@ struct sy6045s_priv {
 	u32 restore_regs[SY6045S_RESTORE_REGS_MAX];
 	int num_restore_regs;
 
-	/* firmware name */
+	/* firmware name (owned copy when set via sysfs) */
 	const char *fw_name;
+	char *fw_name_owned;
 };
 
 static const struct reg_default sy6045s_reg_defaults[] = {
 	{ 0x00, 0x00 },
 };
 
+/*
+ * Full register range is writable: firmware settings files program DSP/EQ
+ * registers across 0x00-0xb0 (vendor GUI exports). Restricting the range
+ * here silently drops most of the tuning.
+ */
 static bool sy6045s_writeable_reg(struct device *dev, unsigned int reg)
 {
-	return reg <= 0x1f;
+	return reg <= SY6045S_MAX_REGISTER;
 }
 
 static bool sy6045s_readable_reg(struct device *dev, unsigned int reg)
 {
-	return reg <= 0x1f;
+	return reg <= SY6045S_MAX_REGISTER;
 }
 
 static bool sy6045s_volatile_reg(struct device *dev, unsigned int reg)
@@ -103,12 +109,29 @@ static const struct snd_soc_dapm_route sy6045s_dapm_routes[] = {
 	{ "SPK_OUT", NULL, "Playback" },
 };
 
+static int sy6045s_reset_chip(struct sy6045s_priv *priv);
+static int sy6045s_restore_regs(struct sy6045s_priv *priv);
+static int sy6045s_apply_settings(struct sy6045s_priv *priv,
+				  const u8 *data, size_t size);
+static int sy6045s_load_firmware(struct sy6045s_priv *priv);
+
 /* -------- sysfs: default_settings ------------- */
+/* re-apply reset + restore-regs + current firmware (tuning recovery) */
 static ssize_t default_settings_store(struct device *dev,
 				      struct device_attribute *attr,
 				      const char *buf, size_t count)
 {
-	return count;
+	struct sy6045s_priv *priv = dev_get_drvdata(dev);
+	int ret;
+
+	sy6045s_reset_chip(priv);
+
+	ret = sy6045s_restore_regs(priv);
+	if (ret)
+		return ret;
+
+	ret = sy6045s_load_firmware(priv);
+	return ret ? ret : count;
 }
 
 static DEVICE_ATTR_WO(default_settings);
@@ -130,21 +153,46 @@ static ssize_t settings_file_show(struct device *dev,
 	return len;
 }
 
+/* echo <firmware-name> > settings_file : (re)load named settings file */
 static ssize_t settings_file_store(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t count)
 {
-	return count;
+	struct sy6045s_priv *priv = dev_get_drvdata(dev);
+	char name[64];
+	int ret;
+
+	if (count >= sizeof(name))
+		return -EINVAL;
+	memcpy(name, buf, count);
+	name[count] = '\0';
+	strim(name);
+	if (!name[0])
+		return -EINVAL;
+
+	mutex_lock(&priv->io_mutex);
+	kfree(priv->fw_name_owned);
+	priv->fw_name_owned = kstrdup(name, GFP_KERNEL);
+	priv->fw_name = priv->fw_name_owned;
+	mutex_unlock(&priv->io_mutex);
+
+	ret = sy6045s_load_firmware(priv);
+	return ret ? ret : count;
 }
 
 static DEVICE_ATTR_RW(settings_file);
 
 /* -------- sysfs: settings ------------- */
+/* echo "w 56 07 aa" > settings : apply raw vendor settings text on the fly */
 static ssize_t settings_store(struct device *dev,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
 {
-	return count;
+	struct sy6045s_priv *priv = dev_get_drvdata(dev);
+	int ret;
+
+	ret = sy6045s_apply_settings(priv, buf, count);
+	return ret ? ret : count;
 }
 
 static DEVICE_ATTR_WO(settings);
@@ -245,59 +293,17 @@ static int sy6045s_reset_chip(struct sy6045s_priv *priv)
 }
 
 /* -------- firmware loading + settings parser ------------- */
-static int sy6045s_save_regs(struct sy6045s_priv *priv, u32 *saved)
-{
-	/* Save critical registers before firmware EQ write:
-	 * reg 0x03: Clock/Mode Control
-	 * reg 0x06: Mute/Filter Control
-	 * reg 0x07: Master Volume
-	 * reg 0x08: Channel 1 Volume
-	 * reg 0x09: Channel 2 Volume
-	 * reg 0x22: I2C EQ Mode
-	 */
-	static const u8 regs_to_save[] = { 0x03, 0x06, 0x07, 0x08, 0x09, 0x22 };
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(regs_to_save); i++) {
-		unsigned int val;
-		int ret;
-
-		ret = regmap_read(priv->regmap, regs_to_save[i], &val);
-		if (ret) {
-			dev_err(&priv->i2c->dev,
-				"failed to save reg 0x%02x: %d\n",
-				regs_to_save[i], ret);
-			saved[i] = 0;
-		} else {
-			saved[i] = val;
-		}
-	}
-
-	return 0;
-}
-
-static int sy6045s_restore_saved_regs(struct sy6045s_priv *priv,
-				      const u32 *saved)
-{
-	static const u8 regs[] = { 0x03, 0x06, 0x07, 0x08, 0x09, 0x22 };
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(regs); i++) {
-		regmap_write(priv->regmap, regs[i], saved[i]);
-	}
-
-	return 0;
-}
-
 static int sy6045s_apply_settings(struct sy6045s_priv *priv,
 				  const u8 *data, size_t size)
+/*
+ * Apply vendor GUI-export settings text ("w <i2c> <reg> <val> [val...]").
+ * The dump intentionally ends with its own final EQ-lock/volume/unmute
+ * state -- no register save/restore around it (would clobber tuning).
+ */
 {
 	unsigned int line_num = 0;
-	u32 saved_regs[6];
 
 	mutex_lock(&priv->io_mutex);
-
-	sy6045s_save_regs(priv, saved_regs);
 
 	while (size > 0) {
 		unsigned int i2c_addr, reg_addr, val;
@@ -373,8 +379,6 @@ static int sy6045s_apply_settings(struct sy6045s_priv *priv,
 		while (size > 0 && *data != '\n' && *data != '\r')
 			data++, size--;
 	}
-
-	sy6045s_restore_saved_regs(priv, saved_regs);
 
 	mutex_unlock(&priv->io_mutex);
 
@@ -571,7 +575,7 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to get supplies\n");
 
-	/* firmware name */
+	/* firmware name (borrowed from DT node lifetime) */
 	of_property_read_string(dev->of_node, "firmware", &priv->fw_name);
 
 	/* parse restore-regs */
@@ -598,9 +602,11 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 
 static void sy6045s_i2c_remove(struct i2c_client *i2c)
 {
-	snd_soc_unregister_component(&i2c->dev);
+	struct sy6045s_priv *priv = i2c_get_clientdata(i2c);
 
-	mutex_destroy(&((struct sy6045s_priv *)i2c_get_clientdata(i2c))->io_mutex);
+	snd_soc_unregister_component(&i2c->dev);
+	kfree(priv->fw_name_owned);
+	mutex_destroy(&priv->io_mutex);
 }
 
 static const struct i2c_device_id sy6045s_i2c_id[] = {
