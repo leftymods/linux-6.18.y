@@ -40,6 +40,11 @@
 #define GOWIN_DRV_NAME		"atri_led_panel"
 #define GOWIN_FB_NAME		"atri_led_panel_"
 
+static bool gowin_force_flash;		/* reflash even if app answers */
+module_param_named(force_flash, gowin_force_flash, bool, 0644);
+MODULE_PARM_DESC(force_flash,
+	"flash the embedded bitstream even when the FPGA already answers");
+
 #define GOWIN_GPIO_NGPIO	2
 #define GOWIN_TTY_MINOR_COUNT	1
 #define GOWIN_TTY_BUF_SIZE	64
@@ -1442,6 +1447,36 @@ static int lp_flash_embedded_bitstream(struct gowin_priv *priv)
 	return ret;
 }
 
+
+/*
+ * The FPGA runs our firmware already? Ask it over the app protocol:
+ * an unconfigured/blank GW1N does not drive meaningful status bytes.
+ * Avoids re-flashing 262 KB over bit-banged JTAG on every boot.
+ */
+static bool lp_fpga_app_alive(struct gowin_priv *priv)
+{
+	u8 st[CMD_GET_STATUS_LEN];
+	size_t i;
+	bool all_same = true;
+
+	if (get_lp_status(priv, st))
+		return false;
+
+	for (i = 1; i < sizeof(st); i++)
+		if (st[i] != st[0])
+			all_same = false;
+
+	if (all_same && (st[0] == 0x00 || st[0] == 0xff)) {
+		dev_info(priv->dev,
+			 "app status all %02x — FPGA not configured\n",
+			 st[0]);
+		return false;
+	}
+
+	dev_info(priv->dev, "app protocol alive, FPGA already programmed\n");
+	return true;
+}
+
 static int lp_handle_firmware_update(struct gowin_priv *priv)
 {
 	int ret;
@@ -1450,6 +1485,15 @@ static int lp_handle_firmware_update(struct gowin_priv *priv)
 		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 			 "FAILED: JTAG pins unavailable");
 		return -ENODEV;
+	}
+
+	if (!gowin_force_flash && lp_fpga_app_alive(priv)) {
+		snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
+			 "skipped: firmware already present");
+		dev_info(priv->dev,
+			 "FPGA firmware present, skipping JTAG flash "
+			 "(force with gowin_led_device.force_flash=1)\n");
+		return 0;
 	}
 
 	dev_info(priv->dev, "programming embedded FPGA bitstream (%u bytes)\n",

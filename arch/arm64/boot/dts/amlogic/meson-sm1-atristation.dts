@@ -347,8 +347,8 @@
 	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10.
 	 * Owned by the userspace rotary-poll daemon (AtriOS extension);
 	 * keep this kernel node disabled to avoid double input events.
-	 * NOTE for future enable: relative-axis needs a REL_* code,
-	 * not KEY_VOLUMEUP. */
+	 * NOTE: userspace contract is REL_DIAL (rotary-poll emits it);
+	 * the laser quadrature A/B sensor feeds the same GPIOs. */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
