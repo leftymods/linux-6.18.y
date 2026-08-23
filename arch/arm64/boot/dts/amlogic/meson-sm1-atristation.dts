@@ -344,16 +344,19 @@
 		regulator-always-on;
 	};
 
-	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10
-	 * Matches pastebin "rotary-volume": gpios = <0x16 0x31 0x00 0x15 0x0a 0x00> */
+	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10.
+	 * Owned by the userspace rotary-poll daemon (AtriOS extension);
+	 * keep this kernel node disabled to avoid double input events.
+	 * NOTE for future enable: relative-axis needs a REL_* code,
+	 * not KEY_VOLUMEUP. */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
 			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		linux,axis = <KEY_VOLUMEUP>;
+		linux,axis = <REL_WHEEL>;
 		rotary-encoder,encoding = "gray";
 		rotary-encoder,relative-axis;
-		status = "okay";
+		status = "disabled";
 	};
 
 	/* Zigbee radio reset/boot control
