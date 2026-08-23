@@ -1276,12 +1276,10 @@
 	#size-cells = <0>;
 	bus-width = <4>;
 	cap-sd-highspeed;
-	cap-mmc-highspeed;
-	sd-uhs-sdr12;
-	sd-uhs-sdr25;
-	sd-uhs-sdr50;
-	sd-uhs-sdr104;
-	max-frequency = <200000000>;
+	/* Safe RTL8822CS timing for first bring-up.
+	 * Re-enable UHS modes one at a time once rtw88 probing and
+	 * throughput are verified on hardware. */
+	max-frequency = <25000000>;
 	non-removable;
 	disable-wp;
 	keep-power-in-suspend;
