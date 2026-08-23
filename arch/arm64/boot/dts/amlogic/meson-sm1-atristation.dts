@@ -23,9 +23,8 @@
 
 	aliases {
 		serial0 = &uart_AO;
-		serial1 = &uart_A;
-		serial2 = &uart_AO_B;
-		serial4 = &uart_A;
+		serial1 = &uart_A;	/* Bluetooth -> ttyAML1 */
+		serial2 = &uart_AO_B;	/* Zigbee    -> ttyAML2 */
 		ethernet0 = &ethmac;
 		led-controller0 = &is31fl3236_3c;
 		led-controller1 = &is31fl3236_3f;
