@@ -415,31 +415,83 @@ static int sy6045s_load_firmware(struct sy6045s_priv *priv)
 }
 
 /* -------- component probe ------------- */
+/*
+ * Anti-pop power sequencing (mirrors the vendor flow):
+ *
+ *   1. VDDIO only  — I2C interface alive, output stage still dead
+ *   2. reset + restore-regs + firmware settings
+ *   3. force mute  (the settings dump itself ends unmuted!)
+ *   4. PVDD on     — output stage charges while muted
+ *   5. settle 150ms
+ *   6. unmute deferred to trigger(SNDRV_PCM_TRIGGER_START)
+ *
+ * Both amplifiers share the PVDD rail; the regulator core refcounts,
+ * so the second probe's enable is a no-op and its settle delay is
+ * harmless.
+ */
 static int sy6045s_component_probe(struct snd_soc_component *component)
 {
 	struct sy6045s_priv *priv = snd_soc_component_get_drvdata(component);
+	unsigned int val = 0;
 	int ret;
 
-	ret = regulator_bulk_enable(SY6045S_NUM_SUPPLIES, priv->supplies);
-	if (ret)
+	dev_info(component->dev, "anti-pop: step 1 — VDDIO on\n");
+	ret = regulator_enable(priv->supplies[0].consumer);
+	if (ret) {
+		dev_err(component->dev, "anti-pop: VDDIO enable failed: %d\n",
+			ret);
 		return ret;
+	}
 
 	/* Reset chip if GPIO provided */
 	sy6045s_reset_chip(priv);
+	dev_info(component->dev, "anti-pop: step 2a — chip reset done\n");
 
 	/* Apply restore-regs from DT */
 	ret = sy6045s_restore_regs(priv);
 	if (ret) {
 		dev_err(component->dev,
-			"failed to apply restore-regs: %d\n", ret);
+			"anti-pop: restore-regs failed: %d\n", ret);
+		regulator_disable(priv->supplies[0].consumer);
+		return ret;
+	}
+	dev_info(component->dev, "anti-pop: step 2b — %d restore-regs applied\n",
+		 priv->num_restore_regs);
+
+	/* Load firmware settings (EQ/DRC tables from /lib/firmware) */
+	ret = sy6045s_load_firmware(priv);
+	if (ret) {
+		dev_warn(component->dev,
+			 "anti-pop: firmware load failed: %d "
+			 "(amp stays muted on defaults)\n", ret);
+	} else {
+		dev_info(component->dev,
+			 "anti-pop: step 2c — firmware settings applied\n");
+	}
+
+	/* Step 3: force mute — never trust the dump's final state here.
+	 * Unmute happens exclusively via trigger(START). */
+	ret = regmap_write(priv->regmap, 0x06, 0x08);
+	if (ret == 0)
+		regmap_read(priv->regmap, 0x06, &val);
+	dev_info(component->dev,
+		 "anti-pop: step 3 — forced mute (reg06=0x%02x, want 0x08)\n",
+		 val);
+
+	/* Step 4: PVDD on */
+	ret = regulator_enable(priv->supplies[1].consumer);
+	if (ret) {
+		dev_err(component->dev, "anti-pop: PVDD enable failed: %d\n",
+			ret);
+		regulator_disable(priv->supplies[0].consumer);
 		return ret;
 	}
 
-	/* Load firmware settings */
-	ret = sy6045s_load_firmware(priv);
-	if (ret)
-		dev_warn(component->dev,
-			 "firmware load failed: %d\n", ret);
+	/* Step 5: output stage charge-up while muted */
+	msleep(150);
+	dev_info(component->dev,
+		 "anti-pop: steps 4-5 — PVDD on, settled 150 ms; "
+		 "amp ready, unmute on playback start\n");
 
 	return 0;
 }
@@ -448,7 +500,11 @@ static void sy6045s_component_remove(struct snd_soc_component *component)
 {
 	struct sy6045s_priv *priv = snd_soc_component_get_drvdata(component);
 
-	regulator_bulk_disable(SY6045S_NUM_SUPPLIES, priv->supplies);
+	/* mute first so PVDD collapse is silent */
+	regmap_write(priv->regmap, 0x06, 0x08);
+	regulator_disable(priv->supplies[1].consumer);	/* PVDD */
+	regulator_disable(priv->supplies[0].consumer);	/* VDDIO */
+	dev_dbg(component->dev, "powered down (muted before PVDD off)\n");
 }
 
 static int sy6045s_mute_stream(struct snd_soc_dai *dai, int mute, int stream)

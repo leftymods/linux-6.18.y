@@ -332,8 +332,12 @@
 		regulator-always-on;
 	};
 
-	/* SY6045S amplifier 20V supply enable (GPIOX_10)
-	 * Matches pastebin "fixedregulator-20v-amp" */
+	/* SY6045S amplifier 20V supply enable (GPIOX_10).
+	 * NOT boot-on/always-on: the sy6045s driver enables PVDD itself,
+	 * after the amp is configured and muted (anti-pop sequencing).
+	 * OPEN QUESTION vs stock DTB: vendor gpio_ampl_pwr was GPIOAO_10;
+	 * verify with a multimeter on hardware — if PVDD stays 0V during
+	 * probe, switch gpio to <&gpio_ao GPIOAO_10 ...> here. */
 	amp_20v: regulator-20v-amp {
 		compatible = "regulator-fixed";
 		regulator-name = "20V_AMPL";
@@ -341,8 +345,6 @@
 		regulator-max-microvolt = <20000000>;
 		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-boot-on;
-		regulator-always-on;
 	};
 
 	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10.
