@@ -174,6 +174,7 @@ struct gowin_priv {
 
 	/* Framebuffer */
 	void *fb_mem;
+	u8 *fb_tx_buf;
 	int fb_open_count;
 	u32 pseudo_palette[16];
 
@@ -200,6 +201,9 @@ struct gowin_priv {
 
 	/* Lock */
 	struct mutex lock;
+
+	/* Serializes framebuffer TX buffer use */
+	struct mutex tx_lock;
 
 	/* TTY xmit buffer */
 	unsigned char xmit_buf[GOWIN_TTY_BUF_SIZE];
@@ -763,7 +767,6 @@ static int lp_fb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
 static int lp_fb_sync(struct fb_info *fbi)
 {
 	struct gowin_priv *priv = (struct gowin_priv *)fbi->par;
-	u8 *buf;
 	int len;
 	int ret;
 
@@ -771,17 +774,16 @@ static int lp_fb_sync(struct fb_info *fbi)
 	if (len > GOWIN_FB_WIDTH_MAX * GOWIN_FB_HEIGHT_MAX)
 		return -EINVAL;
 
-	buf = kmalloc(3 + len, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
+	mutex_lock(&priv->tx_lock);
 
-	buf[0] = CMD_WRITE;
-	buf[1] = len & 0xff;
-	buf[2] = (len >> 8) & 0xff;
-	memcpy(buf + 3, fbi->screen_buffer, len);
+	priv->fb_tx_buf[0] = CMD_WRITE;
+	priv->fb_tx_buf[1] = len & 0xff;
+	priv->fb_tx_buf[2] = (len >> 8) & 0xff;
+	memcpy(priv->fb_tx_buf + 3, fbi->screen_buffer, len);
 
-	ret = lp_write(priv, buf, 3 + len);
-	kfree(buf);
+	ret = lp_write(priv, priv->fb_tx_buf, 3 + len);
+
+	mutex_unlock(&priv->tx_lock);
 
 	if (ret == 0) {
 		ret = show_pic_app_cmd(priv);
@@ -836,6 +838,12 @@ static int fb_init(struct gowin_priv *priv)
 		goto err_fb;
 	}
 
+	priv->fb_tx_buf = kzalloc(3 + fb_len, GFP_KERNEL);
+	if (!priv->fb_tx_buf) {
+		ret = -ENOMEM;
+		goto err_mem;
+	}
+
 	fbi->screen_buffer = priv->fb_mem;
 	fbi->screen_size = fb_len;
 	fbi->fix.smem_len = fb_len;
@@ -883,6 +891,8 @@ static void fb_exit(struct gowin_priv *priv)
 		unregister_framebuffer(priv->fbi);
 		vfree(priv->fb_mem);
 		priv->fb_mem = NULL;
+		kfree(priv->fb_tx_buf);
+		priv->fb_tx_buf = NULL;
 		framebuffer_release(priv->fbi);
 		priv->fbi = NULL;
 	}
@@ -1910,6 +1920,7 @@ static int probe(struct spi_device *spi)
 	priv->width = res->width;
 	priv->height = res->height;
 	mutex_init(&priv->lock);
+	mutex_init(&priv->tx_lock);
 	spi_set_drvdata(spi, priv);
 
 	spi->mode = SPI_MODE_0;
