@@ -193,7 +193,7 @@ struct gowin_priv {
 	u8 touch_irq_number;
 
 	/* Firmware status */
-	char fw_upd_status[40];
+	char fw_upd_status[128];
 
 	/* Lock */
 	struct mutex lock;

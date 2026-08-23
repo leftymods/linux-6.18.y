@@ -49,10 +49,6 @@ struct sy6045s_priv {
 	char *fw_name_owned;
 };
 
-static const struct reg_default sy6045s_reg_defaults[] = {
-	{ 0x00, 0x00 },
-};
-
 /*
  * Full register range is writable: firmware settings files program DSP/EQ
  * registers across 0x00-0xb0 (vendor GUI exports). Restricting the range
@@ -78,6 +74,12 @@ static bool sy6045s_volatile_reg(struct device *dev, unsigned int reg)
 	}
 }
 
+static const struct reg_default sy6045s_reg_defaults[] = {
+	/* sane power-up state: unmuted, volume ramp enabled */
+	{ 0x06, 0x00 },		/* mute/filter control */
+	{ 0x07, 0xff },		/* master volume */
+};
+
 static const struct regmap_config sy6045s_regmap = {
 	.reg_bits     = 8,
 	.val_bits     = 8,
@@ -86,6 +88,8 @@ static const struct regmap_config sy6045s_regmap = {
 	.readable_reg  = sy6045s_readable_reg,
 	.volatile_reg  = sy6045s_volatile_reg,
 	.cache_type    = REGCACHE_MAPLE,
+	.reg_defaults   = sy6045s_reg_defaults,
+	.num_reg_defaults = ARRAY_SIZE(sy6045s_reg_defaults),
 };
 
 static DECLARE_TLV_DB_SCALE(sy6045s_vol_tlv, -12600, 50, 0);
@@ -568,8 +572,8 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 		return PTR_ERR(priv->regmap);
 
 	/* supplies */
-	priv->supplies[0].supply = "vddio";
-	priv->supplies[1].supply = "pvdd";
+	for (int i = 0; i < SY6045S_NUM_SUPPLIES; i++)
+		priv->supplies[i].supply = sy6045s_supply_names[i];
 	ret = devm_regulator_bulk_get(dev, SY6045S_NUM_SUPPLIES,
 				      priv->supplies);
 	if (ret)
