@@ -9,6 +9,8 @@
  * and firmware update support.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/of.h>
@@ -31,6 +33,7 @@
 #include <linux/sysfs.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/ktime.h>
 #include <linux/device.h>
 #include "yandex_fpga_bitstream.h"
 
@@ -217,8 +220,15 @@ static int lp_write(struct gowin_priv *priv, const u8 *data, int len)
 	}
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
-	if (ret)
-		dev_err(priv->dev, "spi_write(%d) failed: %d\n", len, ret);
+	if (ret) {
+		dev_err(priv->dev,
+			"spi_write failed: %d (len=%d cmd=0x%02x%s)\n",
+			ret, len, data[0],
+			priv->jtag_mode ? " [jtag_mode!]" : "");
+	} else {
+		dev_dbg(priv->dev, "spi_write ok: len=%d cmd=0x%02x\n",
+			len, data[0]);
+	}
 	return ret;
 }
 
@@ -245,8 +255,12 @@ static int get_lp_status(struct gowin_priv *priv, u8 *status_buf)
 	}
 	ret = spi_sync(priv->spi, &m);
 	mutex_unlock(&priv->lock);
-	if (ret)
+	if (ret) {
 		dev_err(priv->dev, "get_lp_status failed: %d\n", ret);
+	} else {
+		dev_dbg(priv->dev,
+			"status: %*ph\n", CMD_GET_STATUS_LEN, status_buf);
+	}
 	return ret;
 }
 
@@ -353,11 +367,6 @@ static int uart_receive_data(struct gowin_priv *priv,
 	}
 }
 
-static int uart_flush_data_app_cmd(struct gowin_priv *priv)
-{
-	u8 buf[3] = { CMD_UART_FLUSH_DATA, 0, 0 };
-	return lp_write(priv, buf, 3);
-}
 
 /* ------------------------------------------------------------------ */
 /* GPIO chip                                                           */
@@ -670,10 +679,6 @@ static void deinit_touch(struct gowin_priv *priv)
 	dev_dbg(priv->dev, "touch deinitialized\n");
 }
 
-static void reset_touch_state(struct gowin_priv *priv)
-{
-	priv->fb_open_count = 0;
-}
 
 /* ------------------------------------------------------------------ */
 /* Framebuffer                                                        */
@@ -770,8 +775,17 @@ static int lp_fb_sync(struct fb_info *fbi)
 	ret = lp_write(priv, buf, 3 + len);
 	kfree(buf);
 
-	if (ret == 0)
-		show_pic_app_cmd(priv);
+	if (ret == 0) {
+		ret = show_pic_app_cmd(priv);
+		if (ret)
+			dev_err(priv->dev,
+				"fb_sync: frame sent but SHOW_PIC failed: %d\n",
+				ret);
+	} else {
+		dev_err(priv->dev,
+			"fb_sync: frame push failed: %d (len=%d bytes)\n",
+			ret, len);
+	}
 
 	dev_dbg(priv->dev, "fb_sync len=%d ret=%d\n", len, ret);
 	return ret;
@@ -1117,6 +1131,7 @@ static int gowin_erase_sram(struct gowin_priv *priv)
 	if (ret)
 		return ret;
 
+	dev_info(priv->dev, "jtag: erasing config SRAM\n");
 	jtag_write_ir(priv, GWJ_ERASE_SRAM);
 	jtag_write_ir(priv, GWJ_NOOP);
 
@@ -1144,6 +1159,7 @@ static int gowin_erase_flash(struct gowin_priv *priv)
 	if (ret)
 		return ret;
 
+	dev_info(priv->dev, "jtag: erasing embedded flash (~260 ms)\n");
 	jtag_write_ir(priv, GWJ_EFLASH_ERASE);
 
 	jtag_enter_shift_dr(priv);
@@ -1177,10 +1193,18 @@ static int gowin_write_flash(struct gowin_priv *priv, const u8 *data, int len)
 	int pages = len / 256;
 	int page, word;
 	unsigned long flags;
+	s64 t_start;
 
 	jtag_to_idle(priv);
 
+	t_start = div_s64(ktime_get_boottime_ns(), 1000); /* us */
+
 	for (page = 0; page < pages; page++) {
+		if ((page % 32) == 0 || page == pages - 1)
+			dev_info(priv->dev,
+				 "jtag: EF_PROGRAM page %d/%d (addr 0x%06x)\n",
+				 page + 1, pages, page << 6);
+
 		u8 addr[4];
 		u32 a = (u32)page << 6;
 
@@ -1208,6 +1232,12 @@ static int gowin_write_flash(struct gowin_priv *priv, const u8 *data, int len)
 	}
 
 	jtag_to_idle(priv);
+
+	dev_info(priv->dev,
+		 "jtag: flash written: %d pages (%d bytes) in %lld ms\n",
+		 pages, pages * 256,
+		 div_s64(ktime_get_boottime_ns(), 1000000) -
+		 div_s64(t_start, 1000));
 	return 0;
 }
 
@@ -1310,7 +1340,7 @@ static int select_jtag_mode(struct gowin_priv *priv)
 		gpiod_set_value(priv->jtag_sel, 0);
 
 	priv->jtag_mode = true;
-	dev_dbg(priv->dev, "switched to JTAG mode\n");
+	dev_info(priv->dev, "SPI bus released, switched to JTAG mode\n");
 	return 0;
 }
 
@@ -1328,7 +1358,7 @@ static int select_spi_mode(struct gowin_priv *priv)
 	}
 
 	priv->jtag_mode = false;
-	dev_dbg(priv->dev, "switched to SPI mode\n");
+	dev_info(priv->dev, "switched back to SPI app mode\n");
 	return 0;
 }
 
@@ -1422,8 +1452,8 @@ static int lp_handle_firmware_update(struct gowin_priv *priv)
 		return -ENODEV;
 	}
 
-	dev_info(priv->dev, "programming embedded FPGA bitstream (%zu bytes)\n",
-		 fpga_bitstream_len);
+	dev_info(priv->dev, "programming embedded FPGA bitstream (%u bytes)\n",
+		 (unsigned int)fpga_bitstream_len);
 
 	snprintf(priv->fw_upd_status, sizeof(priv->fw_upd_status),
 		 "flashing embedded bitstream (%u bytes)", fpga_bitstream_len);
