@@ -343,7 +343,11 @@
 		regulator-name = "20V_AMPL";
 		regulator-min-microvolt = <20000000>;
 		regulator-max-microvolt = <20000000>;
-		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
+		/* ПРОВЕРКА НА ЖЕЛЕЗЕ: если после 'anti-pop: steps 4-5' (dmesg)
+	 * на PVDD усилителей нет ~20В — заменить строку ниже на:
+	 *   gpio = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+	 * и закомментировать фазу B в extensions/rotary-poll.c */
+	gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
