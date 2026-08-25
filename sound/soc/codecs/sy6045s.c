@@ -249,8 +249,8 @@ static int sy6045s_restore_single_reg(struct sy6045s_priv *priv,
 {
 	int ret;
 
-	dev_dbg(&priv->i2c->dev, "restore reg: addr=0x%02x val=0x%02x\n",
-		addr, val);
+	dev_info(&priv->i2c->dev, "restore reg: addr=0x%02x val=0x%02x\n",
+		 addr, val);
 
 	if (!regmap_writeable(priv->regmap, addr)) {
 		dev_warn(&priv->i2c->dev,
@@ -442,6 +442,9 @@ static int sy6045s_component_probe(struct snd_soc_component *component)
 	unsigned int val = 0;
 	int ret;
 
+	dev_info(component->dev, "anti-pop: begin (%s, i2c 0x%02x)\n",
+		 priv->pbtl_mode ? "woofer/PBTL" : "tweeters",
+		 priv->i2c->addr);
 	dev_info(component->dev, "anti-pop: step 1 — VDDIO on\n");
 	ret = regulator_enable(priv->supplies[0].consumer);
 	if (ret) {
@@ -512,8 +515,9 @@ static int sy6045s_component_probe(struct snd_soc_component *component)
 	/* Step 5: output stage charge-up while muted */
 	msleep(150);
 	dev_info(component->dev,
-		 "anti-pop: steps 4-5 — PVDD on, settled 150 ms; "
-		 "amp ready, unmute on playback start\n");
+		 "anti-pop: steps 4-5 — PVDD on (%d uV), settled 150 ms; "
+		 "amp ready, unmute on playback start\n",
+		 regulator_get_voltage(priv->supplies[1].consumer));
 
 	return 0;
 }
@@ -676,8 +680,12 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 		return dev_err_probe(dev, ret,
 				     "Failed to register sy6045s component\n");
 
-	dev_info(dev, "SY6045S probe success%s\n",
-		 priv->pbtl_mode ? " (PBTL mode)" : "");
+	dev_info(dev,
+		 "SY6045S probe success%s: i2c 0x%02x, fw=\"%s\", %u restore-regs\n",
+		 priv->pbtl_mode ? " (PBTL mode)" : "",
+		 priv->i2c->addr,
+		 priv->fw_name ? priv->fw_name : "<none>",
+		 priv->num_restore_regs);
 
 	return 0;
 }
