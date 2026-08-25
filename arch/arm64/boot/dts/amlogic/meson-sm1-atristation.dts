@@ -413,8 +413,9 @@
 		};
 	};
 
-	gpio-keys {
-		compatible = "gpio-keys";
+	gpio-keys-polled {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
 		status = "okay";
 
 		button-function {
@@ -1171,10 +1172,14 @@
 	};
 };
 
-/* SPI1 - Quasar LED screen */
+/* SPI1 - Quasar LED screen.
+ * Bus pins (spicc1_pins -> GPIOH_4/5/6) are muxed by the led_panel child:
+ * it owns the default/jtag pinctrl states for FPGA JTAG bit-banging.
+ * Duplicating spicc1_pins on the parent makes pinctrl refuse the child's
+ * request ("pin GPIOH_4 already requested by ffd15000.spi") and the panel
+ * never binds. */
 &spicc1 {
 	status = "okay";
-	pinctrl-0 = <&spicc1_pins>;
 	pinctrl-names = "default";
 	num-cs = <1>;
 	cs-gpios = <&gpio GPIOH_7 GPIO_ACTIVE_LOW>;
