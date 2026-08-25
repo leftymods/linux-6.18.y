@@ -81,6 +81,17 @@
 		vin-supply = <&dc_in>;
 	};
 
+	/* GPU rail: all SM1 GPU OPPs run at 0.8V; board feeds MALI from an
+	 * always-on buck, so declare a fixed 0.8V supply for panfrost devfreq */
+	vddgpu: regulator-vddgpu {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDGPU";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+		vin-supply = <&main_12v>;
+		regulator-always-on;
+	};
+
 	/* Station 2 has no microSD slot; GPIOAO_3 is the Zigbee UART RX
 	 * (stock DTB: uart_ao_b rx_b_3). Node kept disabled for reference. */
 	tflash_vdd: regulator-tflash_vdd {
@@ -157,20 +168,13 @@
 	};
 
 	sound {
-	compatible = "amlogic,auge-sound-card";
-	model = "ATRISTATION";
-	audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
-	playback_channels = <2>;
-	capture_channels = <4>;
+		compatible = "amlogic,axg-sound-card";
+		model = "ATRISTATION";
+		audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
 
-	/* Headphone jack detect (GPIOX_12, active-low)
-	 * Matches pastebin: aml-audio-card,hp-det-gpio = <0x16 0x4d 0x00> */
-	hp-det-gpio = <&gpio GPIOX_12 GPIO_ACTIVE_LOW>;
-
-	/* Headphone widgets/routing
-	 * Matches pastebin: aml-audio-card,widgets/routing */
-	widgets = "Headphone", "Headphones";
-	audio-routing = "Headphones", "Headphone HPOL",
+		/* Headphone widgets/routing */
+		audio-widgets = "Headphone", "Headphones";
+		audio-routing = "Headphones", "Headphone HPOL",
 			"Headphones", "Headphone HPOR",
 			"TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
@@ -665,6 +669,10 @@
 	status = "okay";
 	pinctrl-0 = <&remote_input_ao_pins>;
 	pinctrl-names = "default";
+};
+
+&mali {
+	mali-supply = <&vddgpu>;
 };
 
 &pwm_AO_ab {
