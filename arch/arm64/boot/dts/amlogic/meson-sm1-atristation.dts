@@ -430,11 +430,9 @@
 			linux,code = <KEY_VOICECOMMAND>;
 		};
 
-		button-micmute {
-			label = "micmute";
-			gpios = <&gpio GPIOX_0 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_MICMUTE>;
-		};
+		/* NOTE: no micmute key here on purpose. GPIOX_0 is SDIO_D0
+		 * (RTL8822CS data line) - claiming it as a key broke WiFi.
+		 * Real micmute GPIO TBD via atri-hwprobe --watch-gpio. */
 	};
 
 	/* RGB LED ring - 24 multicolor groups */
@@ -1233,7 +1231,7 @@
 	 * floats and reports a stuck key */
 	button_pullup_pins: button-pullup {
 		mux {
-			groups = "GPIOX_0", "GPIOA_15";
+			groups = "GPIOA_15";
 			function = "gpio_periphs";
 			bias-pull-up;
 		};
