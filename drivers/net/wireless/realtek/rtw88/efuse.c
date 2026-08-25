@@ -100,6 +100,7 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 	chip->ops->cfg_ldo25(rtwdev, false);
 
 	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
+	rtw_info(rtwdev, "efuse dump: size=%u ctl0=0x%08x\n", size, efuse_ctl);
 
 	for (addr = 0; addr < size; addr++) {
 		efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
@@ -110,8 +111,14 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 		do {
 			udelay(1);
 			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
-			if (--cnt == 0)
+			if (--cnt == 0) {
+				/* pinpoint the stuck address: efuse engine
+				 * did not raise the done flag within 1 s */
+				rtw_err(rtwdev,
+					"efuse: addr %u stuck, ctl=0x%08x\n",
+					addr, efuse_ctl);
 				return -EBUSY;
+			}
 		} while (!(efuse_ctl & BIT_EF_FLAG));
 
 		*(map + addr) = (u8)(efuse_ctl & BIT_MASK_EF_DATA);
