@@ -1799,8 +1799,10 @@ static const struct attribute_group *alp_attr_groups[] = {
 /* ------------------------------------------------------------------ */
 
 static const struct spi_device_id atri_led_panel_device_id[] = {
-	{ "atri_led_panel" },
-	{ "led_screen" },
+	{ "atri_led_panel", (kernel_ulong_t)&rev2res_panel },
+	{ "led_screen", (kernel_ulong_t)&rev2res_screen },
+	{ "ya,led-panel", (kernel_ulong_t)&rev2res_panel },
+	{ "ya,led_screen", (kernel_ulong_t)&rev2res_screen },
 	{ }
 };
 

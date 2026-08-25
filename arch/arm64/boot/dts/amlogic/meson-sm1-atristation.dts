@@ -424,13 +424,13 @@
 
 		button-function {
 			label = "function";
-			gpios = <&gpio GPIOX_0 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOICECOMMAND>;
 		};
 
 		button-micmute {
 			label = "micmute";
-			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio GPIOX_0 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_MICMUTE>;
 		};
 	};
