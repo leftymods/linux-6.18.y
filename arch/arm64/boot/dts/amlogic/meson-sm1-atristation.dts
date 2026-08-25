@@ -420,6 +420,8 @@
 	gpio-keys-polled {
 		compatible = "gpio-keys-polled";
 		poll-interval = <100>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&button_pullup_pins>;
 		status = "okay";
 
 		button-function {
@@ -1224,6 +1226,16 @@
 			groups = "GPIOH_5", "GPIOH_6", "GPIOH_7", "GPIOH_8";
 			function = "gpio_periphs";
 			bias-disable;
+		};
+	};
+
+	/* Buttons idle high; without internal pull-up the micmute line
+	 * floats and reports a stuck key */
+	button_pullup_pins: button-pullup {
+		mux {
+			groups = "GPIOX_0", "GPIOA_15";
+			function = "gpio_periphs";
+			bias-pull-up;
 		};
 	};
 };
