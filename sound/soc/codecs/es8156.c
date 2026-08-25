@@ -382,7 +382,11 @@ static int es8156_probe(struct snd_soc_component *component)
 	
 	es8156_reset(component);
 	msleep(20);
-	ret = clk_prepare_enable(es8156->mclk);
+	/* MCLK is optional in DT; clk_prepare_enable(ERR_PTR) oopsed
+	 * the board ("Unable to handle kernel paging request at
+	 * fffffffffffffffe") right after the sound card bound */
+	if (!IS_ERR(es8156->mclk))
+		ret = clk_prepare_enable(es8156->mclk);
 	es8156_init_regs(component);
 
 	return ret;

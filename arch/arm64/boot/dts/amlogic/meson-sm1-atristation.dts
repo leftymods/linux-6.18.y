@@ -340,35 +340,30 @@
 	};
 
 	/* SY6045S amplifier 20V supply enable.
-	 * Pin verified against the original Yandex DTB: gpio_ampl_pwr =
-	 * GPIOAO_10, initial low (vendor userspace raises it after DSP
-	 * init). The sy6045s driver now owns this sequencing (anti-pop),
-	 * so the regulator enables it at step 4 of probe.
-	 * NOTE: laser-encoder phase B shares this pad in the stock
-	 * routing — with the rail gated, rotary-poll cannot claim it;
-	 * see docs/atristation-hardware.md */
+	 * Board owner confirmed: ampl_pwr = GPIOX_10 (the old AO_10 was
+	 * a misparse of the vendor dump). This frees GPIOAO_10 for the
+	 * volume knob phase B. sy6045s driver sequences it at step 4. */
 	amp_20v: regulator-20v-amp {
 		compatible = "regulator-fixed";
 		regulator-name = "20V_AMPL";
 		regulator-min-microvolt = <20000000>;
 		regulator-max-microvolt = <20000000>;
-		gpio = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
-	/* Rotary encoder (volume knob) - GPIOA_0 + GPIOAO_10.
-	 * Owned by the userspace rotary-poll daemon (AtriOS extension);
-	 * keep this kernel node disabled to avoid double input events.
-	 * NOTE: userspace contract is REL_DIAL (rotary-poll emits it);
-	 * the laser quadrature A/B sensor feeds the same GPIOs. */
+	/* Volume knob: laser quadrature, phase A=GPIOA_0 B=GPIOAO_10.
+	 * Kernel gpio-rotary-encoder handles it natively (userspace
+	 * rotary-poll daemon retired once PVDD moved off AO_10 to X_10).
+	 * Emits REL_DIAL so atri-knob / volume consumers just work. */
 	rotary-encoder {
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
 			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		linux,axis = <REL_WHEEL>;
+		linux,axis = <REL_DIAL>;
 		rotary-encoder,encoding = "gray";
 		rotary-encoder,relative-axis;
-		status = "disabled";
+		status = "okay";
 	};
 
 	/* Zigbee radio reset/boot control
@@ -424,15 +419,16 @@
 		pinctrl-0 = <&button_pullup_pins>;
 		status = "okay";
 
-		button-function {
-			label = "function";
+		button-micmute {
+			label = "micmute";
 			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOICECOMMAND>;
+			linux,code = <KEY_MICMUTE>;
 		};
 
-		/* NOTE: no micmute key here on purpose. GPIOX_0 is SDIO_D0
-		 * (RTL8822CS data line) - claiming it as a key broke WiFi.
-		 * Real micmute GPIO TBD via atri-hwprobe --watch-gpio. */
+		/* Vendor DTB wires the front key to gpio 0x16 0x40 ==
+		 * periphs index 64 == GPIOA_15. The red-latching mute
+		 * switch is analog-only hardware without an SoC line.
+		 * GPIOX_0 stays untouched: it is SDIO_D0 (WiFi). */
 	};
 
 	/* RGB LED ring - 24 multicolor groups */
@@ -1249,6 +1245,8 @@
 		compatible = "everest,es8156";
 		#sound-dai-cells = <0>;
 		reg = <0x08>;
+		clocks = <&clkc_audio AUD_CLKID_MST_B_MCLK>;
+		clock-names = "mclk";
 		status = "okay";
 	};
 
