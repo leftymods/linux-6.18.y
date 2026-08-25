@@ -252,6 +252,13 @@ static int sy6045s_restore_single_reg(struct sy6045s_priv *priv,
 	dev_dbg(&priv->i2c->dev, "restore reg: addr=0x%02x val=0x%02x\n",
 		addr, val);
 
+	if (!regmap_writeable(priv->regmap, addr)) {
+		dev_warn(&priv->i2c->dev,
+			 "skipping restore reg 0x%02x: outside regmap range\n",
+			 addr);
+		return 0;
+	}
+
 	ret = regmap_write(priv->regmap, addr, val);
 	if (ret)
 		dev_err(&priv->i2c->dev,

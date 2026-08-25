@@ -1260,7 +1260,10 @@
 		vddio-supply = <&vcc_3v3>;
 		pvdd-supply = <&amp_20v>;
 		firmware = "sy6045s-tweeters-settings.txt";
-		restore-regs = <0x07 0x01 0xff 0x06 0x01 0x08>;
+		/* reg must be <= SY6045S_MAX_REGISTER (0xb0): the old
+		 * <0xff 0x06> pair came from a misread vendor dump (ff was
+		 * its EOF marker, not a register) and NAKed the whole probe */
+		restore-regs = <0x06 0x08>;
 		status = "okay";
 	};
 
@@ -1273,7 +1276,10 @@
 		vddio-supply = <&vcc_3v3>;
 		pvdd-supply = <&amp_20v>;
 		firmware = "sy6045s-woofer-settings.txt";
-		restore-regs = <0x07 0x01 0xff 0x06 0x01 0x08>;
+		/* reg must be <= SY6045S_MAX_REGISTER (0xb0): the old
+		 * <0xff 0x06> pair came from a misread vendor dump (ff was
+		 * its EOF marker, not a register) and NAKed the whole probe */
+		restore-regs = <0x06 0x08>;
 		status = "okay";
 	};
 
