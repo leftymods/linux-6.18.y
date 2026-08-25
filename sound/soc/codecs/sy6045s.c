@@ -447,15 +447,21 @@ static int sy6045s_component_probe(struct snd_soc_component *component)
 	sy6045s_reset_chip(priv);
 	/* give the chip time to come back on I2C before first xfer;
 	 * without this the first regmap_write NACKs (-EIO) */
-	msleep(30);
+	msleep(100);
 	dev_info(component->dev, "anti-pop: step 2a — chip reset done\n");
-
+	{
+		unsigned int idv = 0xdead;
+		int rr = regmap_read(priv->regmap, 0x00, &idv);
+		dev_info(component->dev,
+			 "anti-pop: pre-check reg00=0x%02x ret=%d\n",
+			 idv & 0xff, rr);
+	}
 	/* Apply restore-regs from DT (retry: chip may NACK right
 	 * after reset while its charge pumps spin up) */
 	ret = -EIO;
-	for (int i = 0; i < 3 && ret; i++) {
+	for (int i = 0; i < 5 && ret; i++) {
 		if (i)
-			msleep(20 * i);
+			msleep(50);
 		ret = sy6045s_restore_regs(priv);
 	}
 	if (ret) {

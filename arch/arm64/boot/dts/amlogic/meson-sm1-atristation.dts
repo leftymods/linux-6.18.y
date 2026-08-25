@@ -1310,7 +1310,8 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	bus-width = <4>;
-	cap-sd-highspeed;
+	/* cap-sd-highspeed intentionally omitted: RTL8822CS efuse dump
+	 * (long CMD53) corrupted at HS on meson-gx-mmc w/o tuning */
 	cap-sdio-irq;
 	/* Safe RTL8822CS timing for first bring-up.
 	 * Re-enable UHS modes one at a time once rtw88 probing and
