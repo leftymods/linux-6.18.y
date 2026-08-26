@@ -342,7 +342,8 @@
 		button-function {
 			label = "function";
 			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOICECOMMAND>;
+			/* vendor DTB key_code 0x246 == KEY_HOMEPAGE */
+			linux,code = <KEY_HOMEPAGE>;
 		};
 
 		/* Vendor DTB wires the front key to gpio 0x16 0x40 ==
