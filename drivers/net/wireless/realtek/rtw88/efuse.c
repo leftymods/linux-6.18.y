@@ -96,8 +96,10 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 
 	switch_efuse_bank(rtwdev);
 
-	/* disable 2.5V LDO */
-	chip->ops->cfg_ldo25(rtwdev, false);
+	/* RTL8822CS: the efuse engine is unpowered with the 2.5V LDO
+	 * off - BIT_EF_FLAG never sets and addr 0 hangs forever.
+	 * Power the LDO for the duration of the dump. */
+	chip->ops->cfg_ldo25(rtwdev, true);
 
 	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 	rtw_info(rtwdev, "efuse dump: size=%u ctl0=0x%08x\n", size, efuse_ctl);
@@ -125,6 +127,7 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 	}
 
 	rtw_chip_efuse_grant_off(rtwdev);
+	chip->ops->cfg_ldo25(rtwdev, false);
 
 	return 0;
 }
