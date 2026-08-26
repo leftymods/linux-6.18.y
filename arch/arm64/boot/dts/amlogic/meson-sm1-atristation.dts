@@ -188,7 +188,6 @@
 			sound-dai = <&frddr_a>;
 		};
 
-		/* I2S playback to amps + headphone DAC */
 		dai-link-3 {
 			sound-dai = <&tdmif_b>;
 			dai-format = "i2s";
@@ -197,18 +196,94 @@
 			dai-tdm-slot-tx-mask-0 = <1 1>;
 			mclk-fs = <256>;
 
-			codec-0 {
-				sound-dai = <&tweeter_amp>;
-			};
+			codec-0 { sound-dai = <&tweeter_amp>; };
+			codec-1 { sound-dai = <&woofer_amp>; };
+			codec-2 { sound-dai = <&es8156>; };
+		};
+	};
 
-			codec-1 {
-				sound-dai = <&woofer_amp>;
-			};
+	/* PDM microphone array (4 channels) */
+	dmics: dmics {
+		compatible = "dmic-codec";
+		#sound-dai-cells = <0>;
+		num-channels = <4>;
+		wakeup-delay-ms = <50>;
+		sound-name-prefix = "DMIC";
+	};
 
-			codec-2 {
-				sound-dai = <&es8156>;
+	/* HDMI connector */
+	hdmi-connector {
+		compatible = "hdmi-connector";
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&hdmi_tx_tmds_out>;
 			};
 		};
+	};
+
+	/* USB power enable
+	 * No VBUS GPIO on this board (stock Yandex DTB wires none);
+	 * GPIOH_6 is the FPGA JTAG TDO line, do not claim it here. */
+	usb_pwr_en: regulator-usb-pwr-en {
+		compatible = "regulator-fixed";
+		regulator-name = "USB_PWR_EN";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&vcc_5v>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	/* 32.768kHz clock for WiFi */
+	wifi32k: wifi32k {
+		compatible = "pwm-clock";
+		#clock-cells = <0>;
+		clock-output-names = "wifi_32k";
+		pwms = <&pwm_ef 0 30518 0>;
+	};
+
+	/* VDDAO 1.8V for SDIO/BT I/O */
+	vddio_ao1v8: regulator-vddio-ao1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDIO_AO1V8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&vddao_3v3>;
+		regulator-always-on;
+	};
+
+	/* SY6045S amplifier 20V supply enable.
+	 * Board owner confirmed: ampl_pwr = GPIOX_10 (the old AO_10 was
+	 * a misparse of the vendor dump). This frees GPIOAO_10 for the
+	 * volume knob phase B. sy6045s driver sequences it at step 4. */
+	amp_20v: regulator-20v-amp {
+		compatible = "regulator-fixed";
+		regulator-name = "20V_AMPL";
+		regulator-min-microvolt = <20000000>;
+		regulator-max-microvolt = <20000000>;
+		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	/* Volume knob: laser quadrature, phase A=GPIOA_0 B=GPIOAO_10.
+	 * Kernel gpio-rotary-encoder handles it natively (userspace
+	 * rotary-poll daemon retired once PVDD moved off AO_10 to X_10).
+	 * Emits REL_DIAL so atri-knob / volume consumers just work. */
+	rotary-encoder {
+		compatible = "gpio-rotary-encoder";
+		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
+			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+		/* meson gpiochip lacks to_irq(): name the pad IRQIDs
+		 * explicitly (GPIOA_0 -> 61, GPIOAO_10 -> 10) */
+		interrupt-parent = <&gpio_intc>;
+		interrupts = <61 IRQ_TYPE_EDGE_RISING>,
+			     <10 IRQ_TYPE_EDGE_RISING>;
+		linux,axis = <REL_DIAL>;
+		rotary-encoder,encoding = "gray";
+		rotary-encoder,relative-axis;
+		status = "okay";
 	};
 
 	/* Zigbee radio reset/boot control
@@ -1183,9 +1258,6 @@
 &uart_A {
 	status = "okay";
 	pinctrl-0 = <&uart_a_pins>;
-	pinctrl-names = "default";
-	/* no HW flow control: CTS line may be unwired on this board,
-	 * and a blocked TTY froze the whole BT stack last try */
 
 	bluetooth: bluetooth {
 		compatible = "realtek,rtl8822cs-bt";
