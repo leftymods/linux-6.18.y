@@ -172,11 +172,9 @@
 		model = "ATRISTATION";
 		audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
 
-		/* Headphone widgets/routing */
-		audio-widgets = "Headphone", "Headphones";
-		audio-routing = "Headphones", "Headphone HPOL",
-			"Headphones", "Headphone HPOR",
-			"TDMOUT_B IN 0", "FRDDR_A OUT 1",
+		/* No headphone jack on this board: SY6045S SPK_OUTs are
+		 * wired through the DAI links themselves */
+		audio-routing = "TDMOUT_B IN 0", "FRDDR_A OUT 1",
 			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
 			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
 			"TDM_B Playback", "TDMOUT_B OUT",
