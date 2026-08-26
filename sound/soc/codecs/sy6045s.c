@@ -313,6 +313,7 @@ static int sy6045s_apply_settings(struct sy6045s_priv *priv,
  */
 {
 	unsigned int line_num = 0;
+	int ret;
 
 	mutex_lock(&priv->io_mutex);
 
@@ -368,9 +369,19 @@ static int sy6045s_apply_settings(struct sy6045s_priv *priv,
 				return -EINVAL;
 			}
 
-			regmap_write(priv->regmap, reg_addr, val);
+			ret = regmap_write(priv->regmap, reg_addr, val);
+			if (ret) {
+				mutex_unlock(&priv->io_mutex);
+				dev_err(&priv->i2c->dev,
+					"fw line %d: write reg 0x%02x failed: %d\n",
+					line_num, reg_addr, ret);
+				return ret;
+			}
 
-			/* handle multi-byte writes (reg_addr increments) */
+			/* handle multi-byte writes (reg_addr increments).
+			 * NOTE: re-check size after each pointer bump --
+			 * trailing whitespace at EOF used to walk one byte
+			 * past the buffer (page fault oops). */
 			data += consumed;
 			size -= consumed;
 			while (size > 0 && (*data == ' ' || *data == '\t')) {
@@ -378,10 +389,20 @@ static int sy6045s_apply_settings(struct sy6045s_priv *priv,
 				int nxt;
 
 				data++, size--;
+				if (size == 0)
+					break;
 				if (sscanf(data, "%x%n", &extra_val, &nxt) < 1)
 					break;
 				reg_addr++;
-				regmap_write(priv->regmap, reg_addr, extra_val);
+				ret = regmap_write(priv->regmap, reg_addr,
+						   extra_val);
+				if (ret) {
+					mutex_unlock(&priv->io_mutex);
+					dev_err(&priv->i2c->dev,
+						"fw line %d: write reg 0x%02x failed: %d\n",
+						line_num, reg_addr, ret);
+					return ret;
+				}
 				data += nxt;
 				size -= nxt;
 			}

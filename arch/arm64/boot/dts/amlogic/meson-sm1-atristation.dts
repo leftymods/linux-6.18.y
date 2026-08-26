@@ -421,10 +421,10 @@
 		pinctrl-0 = <&button_pullup_pins>;
 		status = "okay";
 
-		button-micmute {
-			label = "micmute";
+		button-function {
+			label = "function";
 			gpios = <&gpio GPIOA_15 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_MICMUTE>;
+			linux,code = <KEY_VOICECOMMAND>;
 		};
 
 		/* Vendor DTB wires the front key to gpio 0x16 0x40 ==
