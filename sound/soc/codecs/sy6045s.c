@@ -24,7 +24,8 @@
 #include <sound/tlv.h>
 
 #define SY6045S_NUM_SUPPLIES 2
-#define SY6045S_MAX_REGISTER 0xb0
+/* firmware dumps multi-byte writes reaching 0xB1..0xB3 */
+#define SY6045S_MAX_REGISTER 0xff
 #define SY6045S_RESTORE_REGS_MAX 192
 
 static const char *const sy6045s_supply_names[SY6045S_NUM_SUPPLIES] = {
