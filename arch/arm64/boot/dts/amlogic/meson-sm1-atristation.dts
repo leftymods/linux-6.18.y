@@ -261,7 +261,7 @@
 		dai-format = "i2s";
 		dai-tdm-slot-tx-mask-0 = <1 1>;
 		dai-tdm-slot-tx-mask-1 = <1 1>;
-		dai-tdm-slot-tx-mask-0 = <1 1>;
+		dai-tdm-slot-tx-mask-2 = <1 1>;
 		dai-tdm-slot-tx-mask-3 = <1 1>;
 		mclk-fs = <256>;
 
