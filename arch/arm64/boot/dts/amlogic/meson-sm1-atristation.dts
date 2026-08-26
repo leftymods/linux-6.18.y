@@ -1182,14 +1182,12 @@
 /* Bluetooth RTL8822CS-BT on UART_A */
 &uart_A {
 	status = "okay";
-	pinctrl-0 = <&uart_a_pins>, <&uart_a_cts_rts_pins>;
+	pinctrl-0 = <&uart_a_pins>;
 	pinctrl-names = "default";
-	uart-has-rtscts;
+	/* no HW flow control: CTS line may be unwired on this board,
+	 * and a blocked TTY froze the whole BT stack last try */
 
 	bluetooth: bluetooth {
-		/* TEMP: userspace hung attaching FW-less chip; re-enable
-		 * after power/en trace; see docs/atristation-hardware.md */
-		status = "disabled";
 		compatible = "realtek,rtl8822cs-bt";
 		/* 0x53 == GPIOX_18 (verified against sm1 pin table) */
 		enable-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
