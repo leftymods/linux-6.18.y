@@ -1272,7 +1272,8 @@
 		 * btrtl serdev works without them; add back only after
 		 * tracing the board.
 		 */
-		max-speed = <1500000>;
+		/* vendor config keeps FW init at 115200; H5 negotiates up */
+		max-speed = <115200>;
 		status = "okay";
 	};
 };
