@@ -178,9 +178,9 @@
 		audio-routing =
 			"Headphones", "LOUT",
 			"Headphones", "ROUT",
-			"TDMOUT_B IN 0", "FRDDR_A OUT 1",
-			"TDMOUT_B IN 1", "FRDDR_B OUT 1",
-			"TDMOUT_B IN 2", "FRDDR_C OUT 1",
+			"TDMOUT_B IN 0", "FRDDR_A OUT 0",
+			"TDMOUT_B IN 1", "FRDDR_B OUT 0",
+			"TDMOUT_B IN 2", "FRDDR_C OUT 0",
 			"TDM_B Playback", "TDMOUT_B OUT",
 			"TDMIN_B IN 1", "TDM_B Capture",
 			"TDMIN_B IN 4", "TDM_B Loopback",
@@ -220,7 +220,7 @@
 		dai-format = "i2s";
 		bitclock-master = <&tdmif_b>;
 		frame-master = <&tdmif_b>;
-		dai-tdm-slot-tx-mask-2 = <1 1>;
+		dai-tdm-slot-tx-mask-0 = <1 1>;
 		dai-tdm-slot-rx-mask-0 = <1 1>;
 		mclk-fs = <256>;
 
@@ -261,7 +261,7 @@
 		dai-format = "i2s";
 		dai-tdm-slot-tx-mask-0 = <1 1>;
 		dai-tdm-slot-tx-mask-1 = <1 1>;
-		dai-tdm-slot-tx-mask-2 = <1 1>;
+		dai-tdm-slot-tx-mask-0 = <1 1>;
 		dai-tdm-slot-tx-mask-3 = <1 1>;
 		mclk-fs = <256>;
 
