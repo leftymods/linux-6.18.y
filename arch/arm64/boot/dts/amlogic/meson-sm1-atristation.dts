@@ -61,11 +61,10 @@
 
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&gpio GPIOX_7 GPIO_ACTIVE_LOW>;
+		/* Android DTB: wifi.power_on_pin = GPIOX_8 (0x48), asserted high */
+		reset-gpios = <&gpio GPIOX_8 GPIO_ACTIVE_HIGH>;
 		clocks = <&wifi32k>;
 		clock-names = "ext_clock";
-		/* RTL8822CS needs time after WL_REG_ON before SDIO is stable;
-		 * without this the first driver transactions fail with EILSEQ */
 		post-power-on-delay-ms = <200>;
 	};
 
@@ -240,8 +239,9 @@
 	wifi32k: wifi32k {
 		compatible = "pwm-clock";
 		#clock-cells = <0>;
-		clock-output-names = "wifi_32k";
-		pwms = <&pwm_ef 0 30518 0>;
+		clock-frequency = <32768>;
+		/* Android DTB: pwm@19000 ch0, period 30541 (~32.756 kHz), duty ~48% */
+		pwms = <&pwm_ef 0 30541 0>;
 	};
 
 	/* VDDAO 1.8V for SDIO/BT I/O */
