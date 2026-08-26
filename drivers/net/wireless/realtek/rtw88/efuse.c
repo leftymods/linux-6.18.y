@@ -101,30 +101,77 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 	 * Power the LDO for the duration of the dump. */
 	chip->ops->cfg_ldo25(rtwdev, true);
 
+	{
+		u32 sfe = rtw_read32(rtwdev, REG_SYS_FUNC_EN);
+		u32 rsv = rtw_read32(rtwdev, REG_RSV_CTRL);
+		rtw_info(rtwdev, "efuse: SYS_FUNC_EN=0x%08x RSV_CTRL=0x%08x\n",
+			 sfe, rsv);
+	}
+
 	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 	rtw_info(rtwdev, "efuse dump: size=%u ctl0=0x%08x\n", size, efuse_ctl);
+
+	/* Which trigger protocol does this silicon support?
+	 * mode A (mainline): SW clears FLAG, HW sets it when done.
+	 * mode B (alt):      SW sets  FLAG to start, HW clears it. */
+	bool alt_mode = false;
+	bool alt_tried = false;
 
 	for (addr = 0; addr < size; addr++) {
 		efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
 		efuse_ctl |= (addr & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR;
-		rtw_write32(rtwdev, REG_EFUSE_CTRL, efuse_ctl & (~BIT_EF_FLAG));
+
+		if (!alt_mode)
+			rtw_write32(rtwdev, REG_EFUSE_CTRL,
+				    efuse_ctl & ~BIT_EF_FLAG);
+		else
+			rtw_write32(rtwdev, REG_EFUSE_CTRL,
+				    efuse_ctl | BIT_EF_FLAG);
 
 		cnt = 1000000;
 		do {
 			udelay(1);
 			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
-			if (--cnt == 0) {
-				/* pinpoint the stuck address: efuse engine
-				 * did not raise the done flag within 1 s */
-				rtw_err(rtwdev,
-					"efuse: addr %u stuck, ctl=0x%08x\n",
-					addr, efuse_ctl);
-				return -EBUSY;
-			}
+			if (--cnt == 0)
+				break;
 		} while (!(efuse_ctl & BIT_EF_FLAG));
+
+		if (cnt == 0 && !alt_mode && !alt_tried) {
+			alt_tried = true;
+			rtw_err(rtwdev,
+				"efuse: addr %u stuck A (ctl=0x%08x), trying alt trigger\n",
+				addr, efuse_ctl);
+			/* mode B: pulse START, wait until HW clears FLAG */
+			efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
+			efuse_ctl |= (addr & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR;
+			rtw_write32(rtwdev, REG_EFUSE_CTRL,
+				    efuse_ctl | BIT_EF_FLAG);
+			cnt = 200000;
+			do {
+				udelay(1);
+				efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
+				if (--cnt == 0) {
+					rtw_err(rtwdev,
+						"efuse: addr %u stuck B (ctl=0x%08x) - engine dead\n",
+						addr, efuse_ctl);
+					return -EBUSY;
+				}
+			} while (efuse_ctl & BIT_EF_FLAG);
+			alt_mode = true;
+			rtw_info(rtwdev, "efuse: alt trigger works at addr %u\n",
+				 addr);
+		} else if (cnt == 0) {
+			rtw_err(rtwdev,
+				"efuse: addr %u stuck %s (ctl=0x%08x)\n",
+				addr, alt_mode ? "B" : "A", efuse_ctl);
+			return -EBUSY;
+		}
 
 		*(map + addr) = (u8)(efuse_ctl & BIT_MASK_EF_DATA);
 	}
+
+	rtw_info(rtwdev, "efuse: dump complete (%s trigger)\n",
+		 alt_mode ? "alt" : "mainline");
 
 	rtw_chip_efuse_grant_off(rtwdev);
 	chip->ops->cfg_ldo25(rtwdev, false);
