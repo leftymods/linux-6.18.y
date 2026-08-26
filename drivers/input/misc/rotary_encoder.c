@@ -278,6 +278,15 @@ static int rotary_encoder_probe(struct platform_device *pdev)
 
 	for (i = 0; i < encoder->gpios->ndescs; ++i) {
 		encoder->irq[i] = gpiod_to_irq(encoder->gpios->desc[i]);
+		if (encoder->irq[i] < 0)
+			/* meson pinctrl has no to_irq(); allow boards to
+			 * wire the phase lines to <&gpio_intc> directly
+			 * via the standard "interrupts" property */
+			encoder->irq[i] = platform_get_irq(pdev, i);
+		if (encoder->irq[i] < 0) {
+			dev_err(dev, "no IRQ for gpio#%d\n", i);
+			return encoder->irq[i];
+		}
 
 		err = devm_request_threaded_irq(dev, encoder->irq[i],
 				NULL, handler,

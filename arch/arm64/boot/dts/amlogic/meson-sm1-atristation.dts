@@ -362,6 +362,11 @@
 		compatible = "gpio-rotary-encoder";
 		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
 			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+		/* meson gpiochip lacks to_irq(): name the pad IRQIDs
+		 * explicitly (GPIOA_0 -> 61, GPIOAO_10 -> 10) */
+		interrupt-parent = <&gpio_intc>;
+		interrupts = <61 IRQ_TYPE_EDGE_RISING>,
+			     <10 IRQ_TYPE_EDGE_RISING>;
 		linux,axis = <REL_DIAL>;
 		rotary-encoder,encoding = "gray";
 		rotary-encoder,relative-axis;
