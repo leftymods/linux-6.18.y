@@ -170,207 +170,45 @@
 	sound {
 		compatible = "amlogic,axg-sound-card";
 		model = "ATRISTATION";
-		audio-aux-devs = <&tdmout_b>, <&tdmin_b>;
-
-		/* Headphone jack is driven by the ES8156 DAC (LOUT/ROUT);
-		 * speakers go through SY6045S amps via the dai links */
+		audio-aux-devs = <&tdmout_b>;
 		audio-widgets = "Headphone", "Headphones";
 		audio-routing =
 			"Headphones", "LOUT",
 			"Headphones", "ROUT",
-			"TDMOUT_B IN 0", "FRDDR_A OUT 0",
-			"TDMOUT_B IN 1", "FRDDR_B OUT 0",
-			"TDMOUT_B IN 2", "FRDDR_C OUT 0",
-			"TDM_B Playback", "TDMOUT_B OUT",
-			"TDMIN_B IN 1", "TDM_B Capture",
-			"TDMIN_B IN 4", "TDM_B Loopback",
-			"TODDR_A IN 1", "TDMIN_B OUT",
-			"TODDR_B IN 1", "TDMIN_B OUT",
-			"TODDR_C IN 1", "TDMIN_B OUT",
-			"TODDR_A IN 4", "PDM Capture",
-			"TODDR_B IN 4", "PDM Capture",
-			"TODDR_C IN 4", "PDM Capture";
+			"TDMOUT_B IN 0", "FRDDR_A OUT 0";
 
-	clocks = <&clkc CLKID_MPLL2>,
-		 <&clkc CLKID_MPLL0>,
-		 <&clkc CLKID_MPLL1>;
+		clocks = <&clkc CLKID_MPLL2>,
+			 <&clkc CLKID_MPLL0>;
+		assigned-clocks = <&clkc CLKID_MPLL2>,
+				  <&clkc CLKID_MPLL0>;
+		assigned-clock-rates = <294912000>,
+				       <270950400>;
 
-	assigned-clocks = <&clkc CLKID_MPLL2>,
-			  <&clkc CLKID_MPLL0>,
-			  <&clkc CLKID_MPLL1>;
-	assigned-clock-rates = <294912000>,
-			       <270950400>,
-			       <393216000>;
-
-	dai-link-0 {
-		sound-dai = <&frddr_a>;
-	};
-
-	dai-link-1 {
-		sound-dai = <&frddr_b>;
-	};
-
-	dai-link-2 {
-		sound-dai = <&frddr_c>;
-	};
-
-	/* I2S playback to SY6045S amps + capture from ES7210 ADC */
-	dai-link-3 {
-		sound-dai = <&tdmif_b>;
-		dai-format = "i2s";
-		bitclock-master = <&tdmif_b>;
-		frame-master = <&tdmif_b>;
-		dai-tdm-slot-tx-mask-0 = <1 1>;
-		dai-tdm-slot-rx-mask-0 = <1 1>;
-		mclk-fs = <256>;
-
-		codec-0 {
-			sound-dai = <&tweeter_amp>;
+		dai-link-0 {
+			sound-dai = <&frddr_a>;
 		};
 
-		codec-1 {
-			sound-dai = <&woofer_amp>;
-		};
+		/* I2S playback to amps + headphone DAC */
+		dai-link-3 {
+			sound-dai = <&tdmif_b>;
+			dai-format = "i2s";
+			bitclock-master = <&tdmif_b>;
+			frame-master = <&tdmif_b>;
+			dai-tdm-slot-tx-mask-0 = <1 1>;
+			mclk-fs = <256>;
 
-		codec-2 {
-			sound-dai = <&es8156>;
-		};
+			codec-0 {
+				sound-dai = <&tweeter_amp>;
+			};
 
-		codec-3 {
-			sound-dai = <&feedback_adc>;
-			dai-tdm-slot-rx-mask = <1 1>;
-		};
-	};
+			codec-1 {
+				sound-dai = <&woofer_amp>;
+			};
 
-	/* PDM capture for microphones */
-	dai-link-4 {
-		sound-dai = <&toddr_a>;
-	};
-
-	dai-link-5 {
-		sound-dai = <&toddr_b>;
-	};
-
-	dai-link-6 {
-		sound-dai = <&toddr_c>;
-	};
-
-	/* 8ch hdmi interface on TDMA */
-	dai-link-7 {
-		sound-dai = <&tdmif_a>;
-		dai-format = "i2s";
-		dai-tdm-slot-tx-mask-0 = <1 1>;
-		dai-tdm-slot-tx-mask-1 = <1 1>;
-		dai-tdm-slot-tx-mask-2 = <1 1>;
-		dai-tdm-slot-tx-mask-3 = <1 1>;
-		mclk-fs = <256>;
-
-		codec {
-			sound-dai = <&tohdmitx TOHDMITX_I2S_IN_A>;
-		};
-	};
-
-	/* hdmi glue */
-	dai-link-8 {
-		sound-dai = <&tohdmitx TOHDMITX_I2S_OUT>;
-
-		codec {
-			sound-dai = <&hdmi_tx>;
-		};
-	};
-
-	/* PDM capture for digital microphones */
-	dai-link-9 {
-		sound-dai = <&pdm>;
-		dai-format = "pdm";
-		codec {
-			sound-dai = <&dmics>;
-		};
-	};
-};
-
-	/* PDM microphone array (4 channels) */
-	dmics: dmics {
-		compatible = "dmic-codec";
-		#sound-dai-cells = <0>;
-		num-channels = <4>;
-		wakeup-delay-ms = <50>;
-		sound-name-prefix = "DMIC";
-	};
-
-	/* HDMI connector */
-	hdmi-connector {
-		compatible = "hdmi-connector";
-		type = "a";
-
-		port {
-			hdmi_connector_in: endpoint {
-				remote-endpoint = <&hdmi_tx_tmds_out>;
+			codec-2 {
+				sound-dai = <&es8156>;
 			};
 		};
-	};
-
-	/* USB power enable
-	 * No VBUS GPIO on this board (stock Yandex DTB wires none);
-	 * GPIOH_6 is the FPGA JTAG TDO line, do not claim it here. */
-	usb_pwr_en: regulator-usb-pwr-en {
-		compatible = "regulator-fixed";
-		regulator-name = "USB_PWR_EN";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		vin-supply = <&vcc_5v>;
-		regulator-boot-on;
-		regulator-always-on;
-	};
-
-	/* 32.768kHz clock for WiFi */
-	wifi32k: wifi32k {
-		compatible = "pwm-clock";
-		#clock-cells = <0>;
-		clock-output-names = "wifi_32k";
-		pwms = <&pwm_ef 0 30518 0>;
-	};
-
-	/* VDDAO 1.8V for SDIO/BT I/O */
-	vddio_ao1v8: regulator-vddio-ao1v8 {
-		compatible = "regulator-fixed";
-		regulator-name = "VDDIO_AO1V8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		vin-supply = <&vddao_3v3>;
-		regulator-always-on;
-	};
-
-	/* SY6045S amplifier 20V supply enable.
-	 * Board owner confirmed: ampl_pwr = GPIOX_10 (the old AO_10 was
-	 * a misparse of the vendor dump). This frees GPIOAO_10 for the
-	 * volume knob phase B. sy6045s driver sequences it at step 4. */
-	amp_20v: regulator-20v-amp {
-		compatible = "regulator-fixed";
-		regulator-name = "20V_AMPL";
-		regulator-min-microvolt = <20000000>;
-		regulator-max-microvolt = <20000000>;
-		gpio = <&gpio GPIOX_10 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-	};
-
-	/* Volume knob: laser quadrature, phase A=GPIOA_0 B=GPIOAO_10.
-	 * Kernel gpio-rotary-encoder handles it natively (userspace
-	 * rotary-poll daemon retired once PVDD moved off AO_10 to X_10).
-	 * Emits REL_DIAL so atri-knob / volume consumers just work. */
-	rotary-encoder {
-		compatible = "gpio-rotary-encoder";
-		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
-			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		/* meson gpiochip lacks to_irq(): name the pad IRQIDs
-		 * explicitly (GPIOA_0 -> 61, GPIOAO_10 -> 10) */
-		interrupt-parent = <&gpio_intc>;
-		interrupts = <61 IRQ_TYPE_EDGE_RISING>,
-			     <10 IRQ_TYPE_EDGE_RISING>;
-		linux,axis = <REL_DIAL>;
-		rotary-encoder,encoding = "gray";
-		rotary-encoder,relative-axis;
-		status = "okay";
 	};
 
 	/* Zigbee radio reset/boot control
@@ -1349,6 +1187,9 @@
 	uart-has-rtscts;
 
 	bluetooth: bluetooth {
+		/* TEMP: userspace hung attaching FW-less chip; re-enable
+		 * after power/en trace; see docs/atristation-hardware.md */
+		status = "disabled";
 		compatible = "realtek,rtl8822cs-bt";
 		/* 0x53 == GPIOX_18 (verified against sm1 pin table) */
 		enable-gpios = <&gpio GPIOX_18 GPIO_ACTIVE_HIGH>;
