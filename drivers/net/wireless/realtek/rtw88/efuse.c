@@ -7,6 +7,7 @@
 #include "main.h"
 #include "efuse.h"
 #include "reg.h"
+#include "rtw8822c.h"
 #include "debug.h"
 
 #define RTW_EFUSE_BANK_WIFI		0x0
@@ -96,85 +97,90 @@ static int rtw_dump_physical_efuse_map(struct rtw_dev *rtwdev, u8 *map)
 
 	switch_efuse_bank(rtwdev);
 
-	/* RTL8822CS: the efuse engine is unpowered with the 2.5V LDO
-	 * off - BIT_EF_FLAG never sets and addr 0 hangs forever.
-	 * Power the LDO for the duration of the dump. */
-	chip->ops->cfg_ldo25(rtwdev, true);
+	/* ==== probe-kit v4: characterise the efuse engine ======
+	 * Symptom: writing REG_EFUSE_CTRL loses all bits except a
+	 * static BIT29; DONE never raises, even at addr 0.
+	 * Matrix: bus aliveness, ctrl background stability and a
+	 * time-profile of one start attempt, LDO25 off AND on.   */
 
+#define PRK_CANARY_REG 0x3c /* free sys register, not used here */
+
+	/* 1) is the SDIO register file alive after grant/bank? */
+	rtw_write32(rtwdev, PRK_CANARY_REG, 0x1234a55a);
+	rtw_info(rtwdev,
+		 "prk1: canary write/read = %s (val=0x%08x)\n",
+		 rtw_read32(rtwdev, PRK_CANARY_REG) == 0x1234a55a ?
+		 "ALIVE" : "DEAD-BUS", rtw_read32(rtwdev, PRK_CANARY_REG));
+	rtw_write32(rtwdev, PRK_CANARY_REG, 0);
+
+	/* 2) background stability of EFUSE_CTRL with no writes */
 	{
+		u32 b1 = rtw_read32(rtwdev, REG_EFUSE_CTRL);
+		u32 b2 = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 		u32 sfe = rtw_read32(rtwdev, REG_SYS_FUNC_EN);
-		u32 rsv = rtw_read32(rtwdev, REG_RSV_CTRL);
-		rtw_info(rtwdev, "efuse: SYS_FUNC_EN=0x%08x RSV_CTRL=0x%08x\n",
-			 sfe, rsv);
+		u32 ldo = rtw_read8(rtwdev, REG_ANAPARLDO_POW_MAC);
+		rtw_info(rtwdev,
+			 "prk2: bg=0x%08x/0x%08x SYS_FUNC_EN=0x%x LDO25reg=0x%02x\n",
+			 b1, b2, sfe, ldo);
 	}
 
-	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
-	rtw_info(rtwdev, "efuse dump: size=%u ctl0=0x%08x\n", size, efuse_ctl);
+	for (int prk_ldo = 0; prk_ldo < 2; prk_ldo++) {
+		int profile_bits;
+		chip->ops->cfg_ldo25(rtwdev, prk_ldo);
+		/* build "addr0 + keep other ctl bits" then start */
+		efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
+		efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
+		rtw_write32(rtwdev, REG_EFUSE_CTRL,
+			    efuse_ctl & ~BIT_EF_FLAG);
 
-	/* Which trigger protocol does this silicon support?
-	 * mode A (mainline): SW clears FLAG, HW sets it when done.
-	 * mode B (alt):      SW sets  FLAG to start, HW clears it. */
-	bool alt_mode = false;
-	bool alt_tried = false;
+		/* snapshot the value immediately and every ~20ms x5 */
+		profile_bits = 0;
+		for (u32 t = 0; t < 6; t++) {
+			if (t)
+				mdelay(20);
+			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
+			rtw_info(rtwdev,
+				 "prk3[ldo%d,t+%02ums]: ctl=0x%08x DONE=%d\n",
+				 prk_ldo, t * 20, efuse_ctl,
+				 !!(efuse_ctl & BIT_EF_FLAG));
+			profile_bits |= (int)(efuse_ctl != 0);
+		}
+		(void)profile_bits;
+
+		if (efuse_ctl & BIT_EF_FLAG) {
+			rtw_info(rtwdev,
+				 "prk4: engine ALIVE with ldo=%d! resuming dump\n",
+				 prk_ldo);
+			break;
+		}
+	}
+	/* fall through to mainline loop; if engine woke via alt-LDO
+	 * the first iterations will now succeed naturally */
+
+#undef PRK_CANARY_REG
+
+	/* standard restore for the loop path */
+	chip->ops->cfg_ldo25(rtwdev, false);
+
+	efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 
 	for (addr = 0; addr < size; addr++) {
 		efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
 		efuse_ctl |= (addr & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR;
-
-		if (!alt_mode)
-			rtw_write32(rtwdev, REG_EFUSE_CTRL,
-				    efuse_ctl & ~BIT_EF_FLAG);
-		else
-			rtw_write32(rtwdev, REG_EFUSE_CTRL,
-				    efuse_ctl | BIT_EF_FLAG);
+		rtw_write32(rtwdev, REG_EFUSE_CTRL, efuse_ctl & (~BIT_EF_FLAG));
 
 		cnt = 1000000;
 		do {
 			udelay(1);
 			efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
 			if (--cnt == 0)
-				break;
+				return -EBUSY;
 		} while (!(efuse_ctl & BIT_EF_FLAG));
-
-		if (cnt == 0 && !alt_mode && !alt_tried) {
-			alt_tried = true;
-			rtw_err(rtwdev,
-				"efuse: addr %u stuck A (ctl=0x%08x), trying alt trigger\n",
-				addr, efuse_ctl);
-			/* mode B: pulse START, wait until HW clears FLAG */
-			efuse_ctl &= ~(BIT_MASK_EF_DATA | BITS_EF_ADDR);
-			efuse_ctl |= (addr & BIT_MASK_EF_ADDR) << BIT_SHIFT_EF_ADDR;
-			rtw_write32(rtwdev, REG_EFUSE_CTRL,
-				    efuse_ctl | BIT_EF_FLAG);
-			cnt = 200000;
-			do {
-				udelay(1);
-				efuse_ctl = rtw_read32(rtwdev, REG_EFUSE_CTRL);
-				if (--cnt == 0) {
-					rtw_err(rtwdev,
-						"efuse: addr %u stuck B (ctl=0x%08x) - engine dead\n",
-						addr, efuse_ctl);
-					return -EBUSY;
-				}
-			} while (efuse_ctl & BIT_EF_FLAG);
-			alt_mode = true;
-			rtw_info(rtwdev, "efuse: alt trigger works at addr %u\n",
-				 addr);
-		} else if (cnt == 0) {
-			rtw_err(rtwdev,
-				"efuse: addr %u stuck %s (ctl=0x%08x)\n",
-				addr, alt_mode ? "B" : "A", efuse_ctl);
-			return -EBUSY;
-		}
 
 		*(map + addr) = (u8)(efuse_ctl & BIT_MASK_EF_DATA);
 	}
 
-	rtw_info(rtwdev, "efuse: dump complete (%s trigger)\n",
-		 alt_mode ? "alt" : "mainline");
-
 	rtw_chip_efuse_grant_off(rtwdev);
-	chip->ops->cfg_ldo25(rtwdev, false);
 
 	return 0;
 }
