@@ -2112,6 +2112,21 @@ static int rtw_chip_board_info_setup(struct rtw_dev *rtwdev)
 	return 0;
 }
 
+static void atri_log_calibration_tables(struct rtw_dev *rtwdev)
+{
+	rtw_info(rtwdev,
+		 "AtriStation: RF calibration tables are COMPILED INTO this driver (no files needed)\n");
+	rtw_info(rtwdev,
+		 "  mac/bb/agc tables : rtw8822c_mac / rtw8822c_bb / rtw8822c_agc\n");
+	rtw_info(rtwdev,
+		 "  rf radio A/B      : rtw8822c_rf_a / rtw8822c_rf_b\n");
+	rtw_info(rtwdev,
+		 "  tx power limits   : rtw8822c_txpwr_lmt_type0 + type5\n");
+	rtw_info(rtwdev,
+		 "  dpk/cal_init      : rtw8822c_dpk_*  +  array_mp_cal_init (%d entries)\n",
+		 rtwdev->chip->rfk_init_tbl ? rtwdev->chip->rfk_init_tbl->n : 0);
+}
+
 int rtw_chip_info_setup(struct rtw_dev *rtwdev)
 {
 	int ret;
@@ -2133,6 +2148,8 @@ int rtw_chip_info_setup(struct rtw_dev *rtwdev)
 		rtw_err(rtwdev, "failed to setup chip board info\n");
 		goto err_out;
 	}
+
+	atri_log_calibration_tables(rtwdev);
 
 	return 0;
 
