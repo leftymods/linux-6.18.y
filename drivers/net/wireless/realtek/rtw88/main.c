@@ -2006,6 +2006,21 @@ static void rtw_chip_efuse_disable(struct rtw_dev *rtwdev)
 	rtw_mac_power_off(rtwdev);
 }
 
+static void atri_efuse_defaults(struct rtw_dev *rtwdev)
+{
+	struct rtw_efuse *efuse = &rtwdev->efuse;
+
+	rtw_err(rtwdev,
+		"efuse engine unreachable (%d). All RF calibration tables are compiled into this driver; continuing with defaults, MAC will be randomized.\n",
+		-EIO);
+
+	memset(efuse, 0, sizeof(*efuse));
+	efuse->crystal_cap   = 0x20;  /* neutral xtal trim */
+	efuse->rfe_option    = 0;
+	efuse->rf_board_option = 0;
+	eth_random_addr(efuse->addr);
+}
+
 static int rtw_chip_efuse_info_setup(struct rtw_dev *rtwdev)
 {
 	struct rtw_efuse *efuse = &rtwdev->efuse;
@@ -2015,12 +2030,18 @@ static int rtw_chip_efuse_info_setup(struct rtw_dev *rtwdev)
 
 	/* power on mac to read efuse */
 	ret = rtw_chip_efuse_enable(rtwdev);
-	if (ret)
+	if (ret) {
+		atri_efuse_defaults(rtwdev);
+		ret = 0;
 		goto out_unlock;
+	}
 
 	ret = rtw_parse_efuse_map(rtwdev);
-	if (ret)
+	if (ret) {
+		atri_efuse_defaults(rtwdev);
+		ret = 0;
 		goto out_disable;
+	}
 
 	ret = rtw_dump_hw_feature(rtwdev);
 	if (ret)
