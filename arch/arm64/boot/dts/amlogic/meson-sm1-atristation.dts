@@ -267,28 +267,24 @@
 		enable-active-high;
 	};
 
-	/* Volume knob: laser quadrature, phase A=GPIOA_0 B=GPIOAO_10.
-	 * Kernel gpio-rotary-encoder handles it natively (userspace
-	 * rotary-poll daemon retired once PVDD moved off AO_10 to X_10).
-	 * Emits REL_DIAL so atri-knob / volume consumers just work. */
-	rotary-encoder {
-		compatible = "gpio-rotary-encoder";
-		gpios = <&gpio GPIOA_0 GPIO_ACTIVE_HIGH>,
-			<&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-		/* meson gpiochip lacks to_irq(): name the pad IRQIDs
-		 * explicitly (GPIOA_0 -> 61, GPIOAO_10 -> 10) */
-		interrupt-parent = <&gpio_intc>;
-		interrupts = <61 IRQ_TYPE_EDGE_RISING>,
-			     <10 IRQ_TYPE_EDGE_RISING>;
-		linux,axis = <REL_DIAL>;
-		rotary-encoder,encoding = "gray";
-		rotary-encoder,relative-axis;
-		status = "okay";
+	/* Volume knob per vendor: push A/B emitting KEY_VOLUMEUP/DOWN */
+	rotary-volume {
+		compatible = "gpio-keys-polled";
+		poll-interval = <20>;
+
+		vol-up {
+			label = "volume-up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio GPIOZ_10 GPIO_ACTIVE_LOW>;
+		};
+
+		vol-down {
+			label = "volume-down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
+		};
 	};
 
-	/* Zigbee radio reset/boot control
-	 * Matches pastebin "zigbee": zb-reset=GPIOX_17, zb-boot=GPIOX_11 */
-	/* Tuya TZ9213-2782 Zigbee module (stock: zb-reset=X17, zb-boot=X11) */
 	zigbee-control {
 		compatible = "yandex,zigbee-control";
 		reset-gpios = <&gpio GPIOX_17 GPIO_ACTIVE_HIGH>;
