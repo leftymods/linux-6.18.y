@@ -109,16 +109,22 @@ static int zigbee_control_probe(struct platform_device *pdev)
 	priv->dev = dev;
 
 	priv->power_gpio = devm_gpiod_get_optional(dev, "zb-power", GPIOD_OUT_HIGH);
+	if (!priv->power_gpio)
+		priv->power_gpio = devm_gpiod_get_optional(dev, "power", GPIOD_OUT_HIGH);
 	if (IS_ERR(priv->power_gpio))
 		return dev_err_probe(dev, PTR_ERR(priv->power_gpio),
 				      "Failed to acquire zb-power GPIO\n");
 
 	priv->reset_gpio = devm_gpiod_get_optional(dev, "zb-reset", GPIOD_OUT_LOW);
+	if (!priv->reset_gpio)
+		priv->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(priv->reset_gpio))
 		return dev_err_probe(dev, PTR_ERR(priv->reset_gpio),
 				      "Failed to acquire zb-reset GPIO\n");
 
 	priv->boot_gpio = devm_gpiod_get_optional(dev, "zb-boot", GPIOD_OUT_LOW);
+	if (!priv->boot_gpio)
+		priv->boot_gpio = devm_gpiod_get_optional(dev, "boot", GPIOD_OUT_LOW);
 	if (IS_ERR(priv->boot_gpio))
 		return dev_err_probe(dev, PTR_ERR(priv->boot_gpio),
 				      "Failed to acquire zb-boot GPIO\n");

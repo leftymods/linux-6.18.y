@@ -1212,6 +1212,12 @@
 		reg = <0x51>;
 		status = "okay";
 	};
+
+	ltr308: light-sensor@53 {
+		compatible = "liteon,ltr308als01", "liteon,ltr308";
+		reg = <0x53>;
+		status = "okay";
+	};
 };
 
 /* I2C3 - not used on this board (no TAS5707/AD82584F) */
@@ -1298,22 +1304,20 @@
 /* Volume potentiometer on SAR ADC channel 0
  * Handled by userspace daemon (atrivolume) via IIO */
 
-/* SPI LED screen (from Yandex Station 2 quasar_led_screen)
- * On spicc1, connected to FPGA-driven LCD panel.
- * Disabled by default - enable if hardware present.
+/* SPI LED screen (Gowin FPGA / Yandex LED screen) */
 &spicc1 {
-	status = "disabled";
+	status = "okay";
 	pinctrl-0 = <&spicc1_pins>, <&spicc1_ss0_pins>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpio GPIOH_8 GPIO_ACTIVE_LOW>;
 
 	led_screen: led-screen@0 {
-		compatible = "yandex,led-screen";
+		compatible = "gowin,led-screen", "yandex,led-screen", "yandex,station-max-led-screen";
 		reg = <0>;
-		spi-max-frequency = <4000000>;
+		spi-max-frequency = <25000000>;
 		max-brightness = <200>;
 		reset-gpios = <&gpio GPIOX_9 GPIO_ACTIVE_LOW>;
-		status = "disabled";
+		status = "okay";
 	};
 };
-*/
+

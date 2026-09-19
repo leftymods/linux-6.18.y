@@ -383,6 +383,8 @@ static int gowin_led_screen_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, screen);
 
 	screen->reconfig_gpio = devm_gpiod_get_optional(dev, "reconfig", GPIOD_OUT_LOW);
+	if (!screen->reconfig_gpio)
+		screen->reconfig_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	screen->mode_gpio = devm_gpiod_get_optional(dev, "mode", GPIOD_OUT_LOW);
 	screen->touch_irq_gpio = devm_gpiod_get_optional(dev, "touch-irq", GPIOD_IN);
 
@@ -472,6 +474,7 @@ static void gowin_led_screen_remove(struct spi_device *spi)
 static const struct of_device_id gowin_led_screen_of_match[] = {
 	{ .compatible = "gowin,led-screen" },
 	{ .compatible = "yandex,station-max-led-screen" },
+	{ .compatible = "yandex,led-screen" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gowin_led_screen_of_match);
