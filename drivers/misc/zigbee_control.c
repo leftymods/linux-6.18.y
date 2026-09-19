@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * zigbee_control.c -- Zigbee Hardware Management Driver for Yandex Station Max
+ * zigbee_control.c -- Zigbee Hardware Management Driver for Yandex Station Max / AtriStation
  *
- * Copyright (C) Yandex Inc.
- * Ported to Mainline Linux 6.x by Reverse Engineering
- * Full functional parity with vendor kernel module zigbee-control.ko
+ * Copyright (C) Yandex LLC
+ * Complete mainline Linux port matching the exact Yandex vendor zigbee-control.ko
  */
 
 #include <linux/module.h>
@@ -16,15 +15,15 @@
 
 struct zigbee_control_data {
 	struct device *dev;
-	struct gpio_desc *power_gpio;
-	struct gpio_desc *reset_gpio;
-	struct gpio_desc *boot_gpio;
+	struct gpio_desc *power;
+	struct gpio_desc *reset;
+	struct gpio_desc *boot;
 };
 
 static ssize_t power_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct zigbee_control_data *priv = dev_get_drvdata(dev);
-	int val = priv->power_gpio ? gpiod_get_value_cansleep(priv->power_gpio) : 0;
+	int val = priv->power ? gpiod_get_value_cansleep(priv->power) : 1;
 	return sysfs_emit(buf, "%d\n", val);
 }
 
@@ -39,8 +38,8 @@ static ssize_t power_store(struct device *dev, struct device_attribute *attr,
 	if (ret)
 		return ret;
 
-	if (priv->power_gpio)
-		gpiod_set_value_cansleep(priv->power_gpio, state ? 1 : 0);
+	if (priv->power)
+		gpiod_set_value_cansleep(priv->power, state ? 1 : 0);
 
 	return count;
 }
@@ -51,13 +50,13 @@ static ssize_t reset_store(struct device *dev, struct device_attribute *attr,
 {
 	struct zigbee_control_data *priv = dev_get_drvdata(dev);
 
-	if (!priv->reset_gpio)
+	if (!priv->reset)
 		return -ENODEV;
 
-	/* Pulse reset low for 50ms */
-	gpiod_set_value_cansleep(priv->reset_gpio, 1);
+	/* Pulse reset for 50ms */
+	gpiod_set_value_cansleep(priv->reset, 1);
 	msleep(50);
-	gpiod_set_value_cansleep(priv->reset_gpio, 0);
+	gpiod_set_value_cansleep(priv->reset, 0);
 	msleep(50);
 
 	return count;
@@ -67,7 +66,7 @@ static DEVICE_ATTR_WO(reset);
 static ssize_t boot_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct zigbee_control_data *priv = dev_get_drvdata(dev);
-	int val = priv->boot_gpio ? gpiod_get_value_cansleep(priv->boot_gpio) : 0;
+	int val = priv->boot ? gpiod_get_value_cansleep(priv->boot) : 0;
 	return sysfs_emit(buf, "%d\n", val);
 }
 
@@ -82,8 +81,8 @@ static ssize_t boot_store(struct device *dev, struct device_attribute *attr,
 	if (ret)
 		return ret;
 
-	if (priv->boot_gpio)
-		gpiod_set_value_cansleep(priv->boot_gpio, state ? 1 : 0);
+	if (priv->boot)
+		gpiod_set_value_cansleep(priv->boot, state ? 1 : 0);
 
 	return count;
 }
@@ -97,42 +96,93 @@ static struct attribute *zigbee_control_attrs[] = {
 };
 ATTRIBUTE_GROUPS(zigbee_control);
 
+static int zb_claim_gpio(struct device *dev, const char *name, const char *alt_name,
+			 enum gpiod_flags flags, struct gpio_desc **pdesc)
+{
+	struct gpio_desc *desc;
+	int ret;
+
+	desc = devm_gpiod_get_optional(dev, name, flags);
+	if (!desc && alt_name)
+		desc = devm_gpiod_get_optional(dev, alt_name, flags);
+
+	if (IS_ERR(desc)) {
+		dev_err(dev, "Can't claim GPIO '%s'\n", name);
+		return PTR_ERR(desc);
+	}
+
+	if (!desc)
+		return 0;
+
+	ret = gpiod_export(desc, false);
+	if (ret)
+		dev_err(dev, "Can't export GPIO '%s'\n", name);
+
+	ret = gpiod_export_link(dev, name, desc);
+	if (ret)
+		dev_err(dev, "Can't create sysfs link for GPIO '%s'\n", name);
+
+	*pdesc = desc;
+	return 0;
+}
+
+static void zb_unclaim_gpio(struct device *dev, const char *name, struct gpio_desc *desc)
+{
+	if (!desc)
+		return;
+
+	sysfs_remove_link(&dev->kobj, name);
+	gpiod_unexport(desc);
+}
+
 static int zigbee_control_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct zigbee_control_data *priv;
+	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
+	if (!priv) {
+		dev_err(dev, "failed to allocate zb_control\n");
 		return -ENOMEM;
+	}
 
 	priv->dev = dev;
 
-	priv->power_gpio = devm_gpiod_get_optional(dev, "zb-power", GPIOD_OUT_HIGH);
-	if (!priv->power_gpio)
-		priv->power_gpio = devm_gpiod_get_optional(dev, "power", GPIOD_OUT_HIGH);
-	if (IS_ERR(priv->power_gpio))
-		return dev_err_probe(dev, PTR_ERR(priv->power_gpio),
-				      "Failed to acquire zb-power GPIO\n");
+	/* zb-power: optional power enable line */
+	ret = zb_claim_gpio(dev, "zb-power", "power", GPIOD_OUT_HIGH, &priv->power);
+	if (ret)
+		return ret;
 
-	priv->reset_gpio = devm_gpiod_get_optional(dev, "zb-reset", GPIOD_OUT_LOW);
-	if (!priv->reset_gpio)
-		priv->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->reset_gpio))
-		return dev_err_probe(dev, PTR_ERR(priv->reset_gpio),
-				      "Failed to acquire zb-reset GPIO\n");
+	/* zb-reset: reset line (asserted low) */
+	ret = zb_claim_gpio(dev, "zb-reset", "reset", GPIOD_OUT_LOW, &priv->reset);
+	if (ret)
+		goto err_power;
 
-	priv->boot_gpio = devm_gpiod_get_optional(dev, "zb-boot", GPIOD_OUT_LOW);
-	if (!priv->boot_gpio)
-		priv->boot_gpio = devm_gpiod_get_optional(dev, "boot", GPIOD_OUT_LOW);
-	if (IS_ERR(priv->boot_gpio))
-		return dev_err_probe(dev, PTR_ERR(priv->boot_gpio),
-				      "Failed to acquire zb-boot GPIO\n");
+	/* zb-boot: bootloader entry line */
+	ret = zb_claim_gpio(dev, "zb-boot", "boot", GPIOD_OUT_LOW, &priv->boot);
+	if (ret)
+		goto err_reset;
 
 	platform_set_drvdata(pdev, priv);
-	dev_info(dev, "Zigbee control driver probed successfully\n");
-
+	dev_info(dev, "zigbee-control driver registered\n");
 	return 0;
+
+err_reset:
+	zb_unclaim_gpio(dev, "zb-reset", priv->reset);
+err_power:
+	zb_unclaim_gpio(dev, "zb-power", priv->power);
+	return ret;
+}
+
+static void zigbee_control_remove(struct platform_device *pdev)
+{
+	struct zigbee_control_data *priv = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+
+	zb_unclaim_gpio(dev, "zb-boot", priv->boot);
+	zb_unclaim_gpio(dev, "zb-reset", priv->reset);
+	zb_unclaim_gpio(dev, "zb-power", priv->power);
 }
 
 static const struct of_device_id zigbee_control_of_match[] = {
@@ -144,6 +194,7 @@ MODULE_DEVICE_TABLE(of, zigbee_control_of_match);
 
 static struct platform_driver zigbee_control_driver = {
 	.probe = zigbee_control_probe,
+	.remove = zigbee_control_remove,
 	.driver = {
 		.name = "zigbee_control",
 		.of_match_table = zigbee_control_of_match,
@@ -152,7 +203,7 @@ static struct platform_driver zigbee_control_driver = {
 };
 module_platform_driver(zigbee_control_driver);
 
-MODULE_DESCRIPTION("Silicon Labs Zigbee Control Driver for Yandex Station Max");
+MODULE_DESCRIPTION("ZigBee sysfs controls");
 MODULE_AUTHOR("Yandex LLC");
 MODULE_AUTHOR("Mainline Linux port by Reverse Engineering");
 MODULE_LICENSE("GPL v2");
