@@ -24,6 +24,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
+#include "sy6045s_firmware.h"
 
 #define SY6045S_REG_DEV_ID          0x00
 #define SY6045S_REG_REV_ID          0x01
@@ -182,15 +183,31 @@ static int sy6045s_load_firmware(struct sy6045s_priv *priv, const char *filename
 	const struct firmware *fw;
 	int ret;
 
-	ret = request_firmware(&fw, filename, &priv->i2c->dev);
-	if (ret) {
-		dev_err(&priv->i2c->dev, "Failed to load firmware '%s': %d\n", filename, ret);
-		return ret;
+	if (filename && filename[0]) {
+		ret = request_firmware(&fw, filename, &priv->i2c->dev);
+		if (ret == 0) {
+			ret = sy6045s_apply_settings(priv, fw->data, fw->size, filename);
+			release_firmware(fw);
+			return ret;
+		}
+		dev_info(&priv->i2c->dev,
+			 "Firmware file '%s' not found (%d), using baked-in settings\n",
+			 filename, ret);
 	}
 
-	ret = sy6045s_apply_settings(priv, fw->data, fw->size, filename);
-	release_firmware(fw);
-	return ret;
+	/* Fall back to baked-in vendor firmware */
+	if ((filename && strstr(filename, "woofer")) || priv->i2c->addr == 0x2b) {
+		return sy6045s_apply_settings(priv, sy6045s_woofer_default_settings,
+					      sizeof(sy6045s_woofer_default_settings),
+					      "embedded:sy6045s-woofer-settings.txt");
+	} else if ((filename && strstr(filename, "tweeter")) || priv->i2c->addr == 0x2a) {
+		return sy6045s_apply_settings(priv, sy6045s_tweeter_default_settings,
+					      sizeof(sy6045s_tweeter_default_settings),
+					      "embedded:sy6045s-tweeters-settings.txt");
+	}
+
+	dev_err(&priv->i2c->dev, "No embedded firmware found for address 0x%02x\n", priv->i2c->addr);
+	return -ENOENT;
 }
 
 /* Sysfs interfaces */
@@ -417,13 +434,16 @@ static int sy6045s_i2c_probe(struct i2c_client *i2c)
 	if (!device_property_read_string(dev, "firmware", &dfw) ||
 	    !device_property_read_string(dev, "settings-file", &dfw)) {
 		strscpy(priv->default_fw_name, dfw, sizeof(priv->default_fw_name));
-		sy6045s_load_firmware(priv, dfw);
 	} else if (i2c->addr == 0x2b) {
 		strscpy(priv->default_fw_name, "sy6045s-woofer-settings.txt", sizeof(priv->default_fw_name));
-		sy6045s_load_firmware(priv, priv->default_fw_name);
 	} else if (i2c->addr == 0x2a) {
 		strscpy(priv->default_fw_name, "sy6045s-tweeters-settings.txt", sizeof(priv->default_fw_name));
-		sy6045s_load_firmware(priv, priv->default_fw_name);
+	}
+
+	if (priv->default_fw_name[0]) {
+		ret = sy6045s_load_firmware(priv, priv->default_fw_name);
+		if (ret == 0)
+			strscpy(priv->last_fw_name, priv->default_fw_name, sizeof(priv->last_fw_name));
 	}
 
 	if (dev->of_node) {
