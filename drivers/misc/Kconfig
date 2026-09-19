@@ -673,4 +673,15 @@ config ATRI_PCBA_IDS
 	  This driver can be built as a module; the module will be called
 	  atri_pcba_ids.
 
+config ZIGBEE_CONTROL
+	tristate "Yandex Station Max Zigbee Module Control driver"
+	depends on GPIOLIB && OF
+	help
+	  Control driver for the Silicon Labs EFR32MG21 Zigbee module on
+	  Yandex Station Max (Quasar). Provides sysfs interface for
+	  reset, bootloader entry (boot pin), and status.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called zigbee_control.
+
 endmenu

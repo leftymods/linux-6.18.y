@@ -125,3 +125,5 @@ obj-y					+= blink/
 
 # Simatic LED drivers
 obj-y					+= simatic/
+
+obj-$(CONFIG_LEDS_GOWIN_SCREEN)		+= gowin_led_screen.o

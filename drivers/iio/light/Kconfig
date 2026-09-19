@@ -397,6 +397,17 @@ config SENSORS_LM3533
 	  changes. The ALS-control output values can be set per zone for the
 	  three current output channels.
 
+config LTR308ALS
+	tristate "Lite-On LTR-308ALS-01 ambient light sensor"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  If you say yes here you get support for the Lite-On LTR-308ALS-01
+	  ambient light sensor found on Yandex Station Max.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called ltr308als01.
+
 config LTR390
 	tristate "LTR-390UV-01 ambient light and UV sensor"
 	depends on I2C

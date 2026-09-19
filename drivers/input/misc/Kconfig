@@ -670,6 +670,17 @@ config INPUT_GPIO_ROTARY_ENCODER
 	  To compile this driver as a module, choose M here: the
 	  module will be called rotary_encoder.
 
+config INPUT_ROTARY_VOLUME
+	tristate "Rotary Volume Encoder (Yandex Station Max)"
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  Say Y here to add support for rotary encoder volume wheel
+	  as found on Yandex Station Max. Generates KEY_VOLUMEUP and
+	  KEY_VOLUMEDOWN input events.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called rotary_volume.
+
 config INPUT_RB532_BUTTON
 	tristate "Mikrotik Routerboard 532 button interface"
 	depends on MIKROTIK_RB532

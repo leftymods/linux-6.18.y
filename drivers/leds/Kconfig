@@ -1034,4 +1034,14 @@ source "drivers/leds/trigger/Kconfig"
 comment "Simatic LED drivers"
 source "drivers/leds/simatic/Kconfig"
 
+config LEDS_GOWIN_SCREEN
+	tristate "Gowin FPGA LED Matrix Screen for Yandex Station Max"
+	depends on SPI && FB
+	help
+	  Framebuffer and input driver for the 25x16 LED matrix screen
+	  driven by a Gowin FPGA over SPI on Yandex Station Max.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called gowin_led_screen.
+
 endif # NEW_LEDS
